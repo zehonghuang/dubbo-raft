@@ -1,11 +1,11 @@
 package com.hongframe.raft;
 
-import com.hongframe.raft.rpc.core.RequestVoteRpc;
+import com.hongframe.raft.entity.PeerId;
+import com.hongframe.raft.option.RpcClientOptions;
+import com.hongframe.raft.option.RpcRemoteOptions;
+import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcRequests;
-import org.apache.dubbo.common.URL;
-import org.apache.dubbo.config.ApplicationConfig;
-import org.apache.dubbo.config.ReferenceConfig;
-import org.apache.dubbo.config.RegistryConfig;
+import com.hongframe.raft.util.Endpoint;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -14,15 +14,14 @@ import org.apache.dubbo.config.RegistryConfig;
 public class TestRequestVoteRpcClient {
 
     public static void main(String[] args) {
-        URL url = new URL("dubbo", "localhost", 8888, RequestVoteRpc.class.getName());
 
-        ReferenceConfig<RequestVoteRpc> reference = new ReferenceConfig<>();
-        reference.setApplication(new ApplicationConfig("dubbo-demo-api-consumer"));
-        reference.setRegistry(new RegistryConfig("N/A"));
-        reference.setInterface(RequestVoteRpc.class);
-        reference.setUrl(url.toFullString());
-//        reference.setAsync(true);
+        RpcClientOptions options = new RpcClientOptions();
+        options.setRpcRemoteOptions(new RpcRemoteOptions());
 
+        PeerId peerId = new PeerId(new Endpoint("localhost", 8888), 0);
+        options.addPeerId(peerId);
+        RpcClient rpcClient = new RpcClient();
+        rpcClient.init(options);
 
         RpcRequests.RequestVoteRequest voteRequest = new RpcRequests.RequestVoteRequest();
         voteRequest.setGroupId("raft");
@@ -30,8 +29,9 @@ public class TestRequestVoteRpcClient {
         voteRequest.setPeerId("localhost:8080");
         voteRequest.setPreVote(true);
 
-        System.out.println(reference.get().preVote(voteRequest));
-
+        rpcClient.requestVote(peerId, voteRequest, message -> {
+            System.out.println(message);
+        });
 
 
     }

@@ -1,6 +1,7 @@
 package com.hongframe.raft.rpc;
 
 import com.hongframe.raft.entity.Message;
+import com.hongframe.raft.rpc.core.RequestVoteRpc;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -34,6 +35,11 @@ public class RpcRequests {
                     "term=" + term +
                     ", preVote=" + preVote +
                     '}';
+        }
+
+        @Override
+        public String seviceName() {
+            return RequestVoteRpc.class.getSimpleName();
         }
     }
 
@@ -114,6 +120,11 @@ public class RpcRequests {
         public void setPreVote(boolean preVote) {
             this.preVote = preVote;
         }
+
+        @Override
+        public String seviceName() {
+            return RequestVoteRpc.class.getSimpleName();
+        }
     }
 
     public final static class ErrorResponse implements Message {
@@ -142,6 +153,11 @@ public class RpcRequests {
 
         public void setErrorMsg(String errorMsg) {
             this.errorMsg = errorMsg;
+        }
+
+        @Override
+        public String seviceName() {
+            return null;
         }
     }
 

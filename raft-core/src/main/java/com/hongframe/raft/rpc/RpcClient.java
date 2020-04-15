@@ -4,6 +4,7 @@ import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcClientOptions;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.ReferenceConfig;
@@ -53,12 +54,16 @@ public class RpcClient {
         return referenceConfigMap;
     }
 
+    private ReferenceConfig findReferenceConfig(PeerId peerId, Message message) {
+        if(StringUtils.isNotBlank(message.seviceName())) {
+            return references.get(peerId).get(message.seviceName());
+        }
+        return null;
+    }
 
 
-
-
-    public CompletableFuture<Message> requestVote(RequestVoteRequest request, Callback callBack) {
-        return invokeAsync(null, request, callBack);
+    public CompletableFuture<Message> requestVote(PeerId peerId, RequestVoteRequest request, Callback callBack) {
+        return invokeAsync(findReferenceConfig(peerId, request), request, callBack);
     }
 
     private static CompletableFuture<Message> invokeAsync(ReferenceConfig reference, Message request, Callback callBack) {
