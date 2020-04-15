@@ -1,5 +1,6 @@
 package com.hongframe.raft.rpc;
 
+import com.hongframe.raft.option.RpcRemoteOptions;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import com.hongframe.raft.rpc.impl.RequestVoteRpcImpl;
 import org.apache.dubbo.config.ApplicationConfig;
@@ -19,21 +20,23 @@ public class RpcServer {
 
     private Integer port;
 
+    private RpcRemoteOptions rpcRemoteOptions;
+
     private DubboBootstrap dubboBootstrap;
 
-    private List<Class> servicesInterface = new ArrayList<>();
 
-    private List<Class> servicesImpl = new ArrayList<>();
 
-    public RpcServer(int port) {
+    public RpcServer(int port, RpcRemoteOptions options) {
         this.port = port;
+        this.rpcRemoteOptions = options;
     }
 
     public void init() {
-        addRaftRequest();
         List<ServiceConfig> services = new ArrayList<>();
         try {
-            for (int i = 0; i < this.servicesInterface.size(); i++) {
+            List<Class> servicesInterface = this.rpcRemoteOptions.getServicesInterface();
+            List<Class> servicesImpl = this.rpcRemoteOptions.getServicesImpl();
+            for (int i = 0; i < servicesInterface.size(); i++) {
                 ServiceConfig service = new ServiceConfig<>();
                 service.setInterface(servicesInterface.get(i));
                 service.setRef(servicesImpl.get(i).newInstance());
@@ -62,10 +65,7 @@ public class RpcServer {
         }).start();
     }
 
-    private void addRaftRequest() {
-        servicesInterface.add(RequestVoteRpc.class);
-        servicesImpl.add(RequestVoteRpcImpl.class);
-    }
+
 
 
 }

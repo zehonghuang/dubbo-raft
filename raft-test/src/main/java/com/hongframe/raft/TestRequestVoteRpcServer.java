@@ -1,5 +1,6 @@
 package com.hongframe.raft;
 
+import com.hongframe.raft.option.RpcRemoteOptions;
 import com.hongframe.raft.rpc.RpcServer;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import com.hongframe.raft.rpc.impl.RequestVoteRpcImpl;
@@ -15,7 +16,8 @@ import org.apache.dubbo.config.bootstrap.DubboBootstrap;
 public class TestRequestVoteRpcServer {
 
     public static void main(String[] args) {
-        RpcServer rpcServer = new RpcServer(8888);
+        RpcRemoteOptions options = new RpcRemoteOptions();
+        RpcServer rpcServer = new RpcServer(8888, options);
 
         rpcServer.init();
 
