@@ -1,8 +1,8 @@
-package com.hongframe.raft.rpc;
+package com.hongframe.raft.rpc.core;
 
 import static com.hongframe.raft.rpc.RpcRequests.*;
 
-public interface RequestVoteRpc {
+public interface RequestVoteRpc  {
 
     RequestVoteResponse preVote(RequestVoteRequest request);
 

@@ -1,6 +1,7 @@
 package com.hongframe.raft.rpc;
 
 import com.hongframe.raft.entity.Message;
+import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import org.apache.dubbo.config.ReferenceConfig;
 import org.apache.dubbo.rpc.RpcContext;
 

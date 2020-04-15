@@ -1,10 +1,10 @@
 package com.hongframe.raft.rpc.impl;
 
-import com.hongframe.raft.entity.RequestVoteRequest;
-import com.hongframe.raft.entity.RequestVoteResponse;
-import com.hongframe.raft.rpc.RequestVoteRpc;
+import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import org.apache.dubbo.rpc.AsyncContext;
 import org.apache.dubbo.rpc.RpcContext;
+
+import static com.hongframe.raft.rpc.RpcRequests.*;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
