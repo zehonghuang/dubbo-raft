@@ -17,6 +17,7 @@ public class TestRequestVoteRpcServer {
         ServiceConfig<RequestVoteRpc> service = new ServiceConfig<>();
         service.setInterface(RequestVoteRpc.class);
         service.setRef(new RequestVoteRpcImpl());
+        service.setAsync(true);
 
         DubboBootstrap bootstrap = DubboBootstrap.getInstance();
         bootstrap.application(new ApplicationConfig("dubbo-demo-api-provider"))
