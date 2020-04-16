@@ -50,7 +50,9 @@ public class NodeManager {
             if(nodes == null) {
                 nodes = Collections.synchronizedList(new ArrayList<>());
                 List<Node> existsNode = this.groupMap.putIfAbsent(gourp, nodes);
-                nodes = existsNode;
+                if (existsNode != null) {
+                    nodes = existsNode;
+                }
             }
             nodes.add(node);
             return true;

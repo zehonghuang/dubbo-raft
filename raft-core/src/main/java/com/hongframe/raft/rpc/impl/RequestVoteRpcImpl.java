@@ -1,6 +1,9 @@
 package com.hongframe.raft.rpc.impl;
 
+import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.hongframe.raft.rpc.RpcRequests.*;
 
@@ -10,11 +13,14 @@ import static com.hongframe.raft.rpc.RpcRequests.*;
  */
 public class RequestVoteRpcImpl implements RequestVoteRpc {
 
+    private static final Logger LOG = LoggerFactory.getLogger(RequestVoteRpcImpl.class);
+
 
     @Override
     public RequestVoteResponse preVote(RequestVoteRequest request) {
-
-        return (RequestVoteResponse) getNode(request).handlePreVoteRequest(request);
+        LOG.info("into preVote");
+        NodeImpl node = getNode(request);
+        return (RequestVoteResponse) node.handlePreVoteRequest(request);
     }
 
     @Override

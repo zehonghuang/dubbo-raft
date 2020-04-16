@@ -16,21 +16,20 @@ public class TestRequestVoteRpcClient {
 
     public static void main(String[] args) {
 
-        RpcClientOptions options = new RpcClientOptions();
-        RpcRemoteOptions rpcRemoteOptions = new RpcRemoteOptions();
-        rpcRemoteOptions.setNode(new NodeImpl(null, null));
-        options.setRpcRemoteOptions(rpcRemoteOptions);
-
-
         PeerId peerId = new PeerId(new Endpoint("localhost", 8888), 0);
+
+        RpcClientOptions options = new RpcClientOptions();
+        RpcRemoteOptions rpcRemoteOptions = new RpcRemoteOptions(null);
+        options.setRpcRemoteOptions(rpcRemoteOptions);
         options.addPeerId(peerId);
+
         RpcClient rpcClient = new RpcClient();
         rpcClient.init(options);
 
         RpcRequests.RequestVoteRequest voteRequest = new RpcRequests.RequestVoteRequest();
         voteRequest.setGroupId("raft");
         voteRequest.setTerm(100L);
-        voteRequest.setPeerId("localhost:8080");
+        voteRequest.setPeerId("localhost:8888");
         voteRequest.setPreVote(true);
 
         rpcClient.requestVote(peerId, voteRequest);

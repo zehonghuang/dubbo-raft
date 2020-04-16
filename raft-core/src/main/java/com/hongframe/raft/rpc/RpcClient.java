@@ -1,5 +1,6 @@
 package com.hongframe.raft.rpc;
 
+import com.hongframe.raft.NodeManager;
 import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.PeerId;
@@ -36,8 +37,6 @@ public class RpcClient {
 
     private RpcClientOptions rpcClientOptions;
 
-    private NodeImpl node;
-
     private Map<PeerId, Map<String, ReferenceConfig>> references = new HashMap<>();
 
     public RpcClient(){
@@ -49,7 +48,6 @@ public class RpcClient {
             references.put(peerId, addReferenceConfig(peerId));
         }
 
-        node = (NodeImpl) this.rpcClientOptions.getRpcRemoteOptions().getNode();
     }
 
     private Map<String, ReferenceConfig> addReferenceConfig(PeerId peerId) {
@@ -80,7 +78,8 @@ public class RpcClient {
 
     public CompletableFuture<?> requestVote(PeerId peerId, RequestVoteRequest request) {
         return invokeAsync(findReferenceConfig(peerId, request), request, (message) -> {
-            this.node.handlePreVoteResponse((RequestVoteResponse) message);
+            NodeImpl node = (NodeImpl) NodeManager.getInstance().get(request.getGroupId(), peerId);
+            node.handleVoteResponse((RequestVoteResponse) message);
         });
     }
 

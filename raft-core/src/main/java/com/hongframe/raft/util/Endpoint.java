@@ -43,4 +43,35 @@ public class Endpoint implements Copiable<Endpoint> {
     public Endpoint copy() {
         return null;
     }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + (this.ip == null ? 0 : this.ip.hashCode());
+        result = prime * result + this.port;
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final Endpoint other = (Endpoint) obj;
+        if (this.ip == null) {
+            if (other.ip != null) {
+                return false;
+            }
+        } else if (!this.ip.equals(other.ip)) {
+            return false;
+        }
+        return this.port == other.port;
+    }
 }

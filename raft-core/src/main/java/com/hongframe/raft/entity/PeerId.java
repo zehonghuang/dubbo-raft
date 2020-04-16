@@ -75,4 +75,36 @@ public class PeerId {
             return false;
         }
     }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + (this.endpoint == null ? 0 : this.endpoint.hashCode());
+        result = prime * result + this.idx;
+        return result;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final PeerId other = (PeerId) obj;
+        if (this.endpoint == null) {
+            if (other.endpoint != null) {
+                return false;
+            }
+        } else if (!this.endpoint.equals(other.endpoint)) {
+            return false;
+        }
+        return this.idx == other.idx;
+    }
+
 }

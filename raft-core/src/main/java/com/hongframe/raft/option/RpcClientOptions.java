@@ -4,7 +4,7 @@ import com.hongframe.raft.entity.PeerId;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -17,13 +17,19 @@ public class RpcClientOptions {
     private RpcRemoteOptions rpcRemoteOptions;
 
     public void addPeerId(PeerId peerId) {
+        if(Objects.equals(peerId, this.rpcRemoteOptions.getServerId())) {
+            return;
+        }
         if(!peerIds.contains(peerId)) {
             peerIds.add(peerId);
         }
     }
 
-    public void addPeerIds(Set<PeerId> peerIds) {
+    public void addPeerIds(List<PeerId> peerIds) {
         for(PeerId peerId : peerIds) {
+            if(Objects.equals(peerId, this.rpcRemoteOptions.getServerId())) {
+                continue;
+            }
             addPeerId(peerId);
         }
     }
