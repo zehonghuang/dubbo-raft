@@ -2,11 +2,13 @@ package com.hongframe.raft.util;
 
 import io.netty.util.HashedWheelTimer;
 import io.netty.util.Timeout;
+import io.netty.util.TimerTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.netty.util.Timer;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -26,6 +28,7 @@ public abstract class ReentrantTimer {
     private volatile boolean running;
     private volatile boolean stop;
     private volatile boolean destroyed;
+    private volatile boolean invoking;
 
 
     public ReentrantTimer(String name, int timeoutMs) {
@@ -39,17 +42,56 @@ public abstract class ReentrantTimer {
         this.stop = true;
     }
 
+    protected abstract void onTrigger();
+
+    protected int adjustTimeout(final int timeoutMs) {
+        return timeoutMs;
+    }
+
+    public void run() {
+        this.invoking = true;
+        try {
+            onTrigger();
+        } catch (Exception e) {
+            //TODO LOG
+        }
+
+        this.lock.lock();
+        try {
+            this.invoking = false;
+            if(this.stop) {
+                this.running = false;
+            } else {
+                this.timeout = null;
+                schedule();// again
+            }
+        } finally {
+            this.lock.unlock();
+        }
+    }
+
+    public void schedule() {
+        if (this.timeout != null) {
+            this.timeout.cancel();
+        }
+        TimerTask task = timeout -> {
+            ReentrantTimer.this.run();
+        };
+
+        this.timeout = this.timer.newTimeout(task, adjustTimeout(this.timeoutMs), TimeUnit.MILLISECONDS);
+    }
+
     public void start() {
         this.lock.lock();
         try {
-            if(this.destroyed) {
+            if (this.destroyed) {
                 return;
             }
-            if(!this.stop) {
+            if (!this.stop) {
                 return;
             }
             stop = true;
-            if(this.running) {
+            if (this.running) {
                 return;
             }
             this.running = true;
@@ -59,14 +101,37 @@ public abstract class ReentrantTimer {
         }
     }
 
-    public void stop() {
+    public void destroy() {
         this.lock.lock();
         try {
-            if(this.stop) {
+            if (this.destroyed) {
+                return;
+            }
+            this.destroyed = true;
+            if (this.stop) {
                 return;
             }
             this.stop = true;
-            if(this.timeout != null) {
+            if (this.timeout != null) {
+                if (this.timeout.cancel()) {
+                    running = false;
+                }
+                this.timeout = null;
+            }
+        } finally {
+            this.lock.unlock();
+            this.timer.stop();
+        }
+    }
+
+    public void stop() {
+        this.lock.lock();
+        try {
+            if (this.stop) {
+                return;
+            }
+            this.stop = true;
+            if (this.timeout != null) {
                 this.timeout.cancel();
                 this.running = false;
                 this.timeout = null;

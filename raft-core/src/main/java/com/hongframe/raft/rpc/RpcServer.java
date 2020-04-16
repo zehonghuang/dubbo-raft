@@ -5,6 +5,7 @@ import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import com.hongframe.raft.rpc.core.RpcService;
 import com.hongframe.raft.rpc.impl.RequestVoteRpcImpl;
 import com.hongframe.raft.util.Endpoint;
+import com.hongframe.raft.util.NamedThreadFactory;
 import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.ProtocolConfig;
 import org.apache.dubbo.config.RegistryConfig;
@@ -62,7 +63,7 @@ public class RpcServer {
         ProtocolConfig protocol = new ProtocolConfig();
         protocol.setPort(port);
 
-        new Thread(() -> {
+        new NamedThreadFactory("dubbo-server", false).newThread(() -> {
             dubboBootstrap.application(new ApplicationConfig("dubbo-demo-api-provider"))
                     .registry(new RegistryConfig("N/A"))
                     .services(services)
