@@ -5,7 +5,7 @@ import com.hongframe.raft.NodeManager;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.NodeId;
 import com.hongframe.raft.entity.PeerId;
-import com.hongframe.raft.option.RaftOptions;
+import com.hongframe.raft.option.NodeOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,14 +24,17 @@ public class NodeImpl implements Node {
     private PeerId leaderId;
     private NodeId nodeId;
 
+    private NodeOptions nodeOptions;
+
     public NodeImpl(String groupId, PeerId serverId) {
         this.groupId = groupId;
         this.serverId = serverId;
     }
 
     @Override
-    public boolean init(RaftOptions opts) {
+    public boolean init(NodeOptions opts) {
         NodeManager.getInstance().add(this);
+        this.nodeOptions = opts;
         return false;
     }
 

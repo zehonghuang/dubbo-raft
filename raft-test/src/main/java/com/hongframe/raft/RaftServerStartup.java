@@ -45,8 +45,6 @@ public class RaftServerStartup {
     }
 
     private static RpcServer createServer(Endpoint endpoint, RpcRemoteOptions options) {
-
-
         RpcServer rpcServer = new RpcServer(endpoint, options);
         return rpcServer;
     }
@@ -54,12 +52,9 @@ public class RaftServerStartup {
     private static RpcClient createClient(NodeOptions nodeOptions, RpcRemoteOptions rpcRemoteOptions) {
         RpcClientOptions options = new RpcClientOptions();
         options.setRpcRemoteOptions(rpcRemoteOptions);
-
-
         options.addPeerIds(nodeOptions.getConfig().getPeers());
         RpcClient rpcClient = new RpcClient();
         rpcClient.init(options);
-
         return rpcClient;
     }
 

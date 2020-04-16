@@ -8,7 +8,17 @@ import com.hongframe.raft.conf.Configuration;
  */
 public class NodeOptions {
 
+    private int electionTimeoutMs = 1000;
+
     private Configuration config;
+
+    public int getElectionTimeoutMs() {
+        return electionTimeoutMs;
+    }
+
+    public void setElectionTimeoutMs(int electionTimeoutMs) {
+        this.electionTimeoutMs = electionTimeoutMs;
+    }
 
     public Configuration getConfig() {
         return config;
