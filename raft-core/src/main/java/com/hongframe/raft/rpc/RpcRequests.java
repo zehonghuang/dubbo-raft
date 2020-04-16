@@ -50,6 +50,7 @@ public class RpcRequests {
             this.serverId = serverId;
         }
 
+        @Override
         public String getPeerId() {
             return peerId;
         }
@@ -128,6 +129,16 @@ public class RpcRequests {
         public void setLastLogLast(Long lastLogLast) {
             this.lastLogLast = lastLogLast;
         }
+
+        @Override
+        public String getPeerId() {
+            return null;
+        }
+
+        @Override
+        public String getGroupId() {
+            return null;
+        }
     }
 
     public static final class RequestVoteResponse implements Message {
@@ -148,6 +159,16 @@ public class RpcRequests {
 
         public void setPreVote(Boolean preVote) {
             this.preVote = preVote;
+        }
+
+        @Override
+        public String getPeerId() {
+            return null;
+        }
+
+        @Override
+        public String getGroupId() {
+            return null;
         }
 
         @Override
@@ -270,6 +291,16 @@ public class RpcRequests {
                     "errorCode=" + errorCode +
                     ", errorMsg='" + errorMsg + '\'' +
                     '}';
+        }
+
+        @Override
+        public String getGroupId() {
+            return null;
+        }
+
+        @Override
+        public String getPeerId() {
+            return null;
         }
 
         public Integer getErrorCode() {

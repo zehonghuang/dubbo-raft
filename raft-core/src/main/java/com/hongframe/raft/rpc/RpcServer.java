@@ -46,7 +46,6 @@ public class RpcServer {
                 ServiceConfig service = new ServiceConfig<>();
                 service.setInterface(servicesInterface.get(i));
                 RpcService rpcService = (RpcService) servicesImpl.get(i).newInstance();
-                rpcService.setNode(this.rpcRemoteOptions.getNode());
                 service.setRef(rpcService);
                 service.setAsync(true);
                 services.add(service);

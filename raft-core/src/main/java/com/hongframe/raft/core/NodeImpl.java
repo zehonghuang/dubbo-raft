@@ -1,6 +1,7 @@
 package com.hongframe.raft.core;
 
 import com.hongframe.raft.Node;
+import com.hongframe.raft.NodeManager;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.NodeId;
 import com.hongframe.raft.entity.PeerId;
@@ -30,6 +31,7 @@ public class NodeImpl implements Node {
 
     @Override
     public boolean init(RaftOptions opts) {
+        NodeManager.getInstance().add(this);
         return false;
     }
 

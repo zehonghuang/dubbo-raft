@@ -14,4 +14,8 @@ public interface Message extends java.io.Serializable {
         return null;
     }
 
+    String getPeerId();
+
+    String getGroupId();
+
 }

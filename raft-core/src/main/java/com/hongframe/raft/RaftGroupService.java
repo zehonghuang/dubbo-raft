@@ -1,5 +1,6 @@
 package com.hongframe.raft;
 
+import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcServer;
@@ -34,7 +35,9 @@ public class RaftGroupService {
     }
 
     public synchronized Node start() {
-        return null;
+        this.node = new NodeImpl(this.groupId, this.peerId);
+        NodeManager.getInstance().addAddress(this.peerId.getEndpoint());
+        return node;
     }
 
 }

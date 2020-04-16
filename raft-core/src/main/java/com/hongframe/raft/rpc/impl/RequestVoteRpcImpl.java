@@ -1,7 +1,5 @@
 package com.hongframe.raft.rpc.impl;
 
-import com.hongframe.raft.Node;
-import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 
 import static com.hongframe.raft.rpc.RpcRequests.*;
@@ -12,20 +10,16 @@ import static com.hongframe.raft.rpc.RpcRequests.*;
  */
 public class RequestVoteRpcImpl implements RequestVoteRpc {
 
-    private NodeImpl node;
 
     @Override
     public RequestVoteResponse preVote(RequestVoteRequest request) {
-        return (RequestVoteResponse) this.node.handlePreVoteRequest(request);
+
+        return (RequestVoteResponse) getNode(request).handlePreVoteRequest(request);
     }
 
     @Override
     public RequestVoteResponse requestVote(RequestVoteRequest request) {
-        return (RequestVoteResponse) this.node.handleVoteRequest();
+        return (RequestVoteResponse) getNode(request).handleVoteRequest();
     }
 
-    @Override
-    public void setNode(Node node) {
-        this.node = (NodeImpl) node;
-    }
 }
