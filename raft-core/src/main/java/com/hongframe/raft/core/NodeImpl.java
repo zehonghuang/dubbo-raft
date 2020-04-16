@@ -2,6 +2,7 @@ package com.hongframe.raft.core;
 
 import com.hongframe.raft.Node;
 import com.hongframe.raft.entity.Message;
+import com.hongframe.raft.entity.NodeId;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RaftOptions;
 import org.slf4j.Logger;
@@ -17,8 +18,15 @@ public class NodeImpl implements Node {
 
     private static final Logger LOG = LoggerFactory.getLogger(NodeImpl.class);
 
+    private String groupId;
     private PeerId serverId;
     private PeerId leaderId;
+    private NodeId nodeId;
+
+    public NodeImpl(String groupId, PeerId serverId) {
+        this.groupId = groupId;
+        this.serverId = serverId;
+    }
 
     @Override
     public boolean init(RaftOptions opts) {
@@ -44,6 +52,14 @@ public class NodeImpl implements Node {
 
     public void handleVoteResponse(RequestVoteResponse voteResponse) {
         System.out.println(voteResponse);
+    }
+
+    @Override
+    public NodeId getNodeId() {
+        if (this.nodeId == null) {
+            this.nodeId = new NodeId(this.groupId, this.serverId);
+        }
+        return this.nodeId;
     }
 
     @Override

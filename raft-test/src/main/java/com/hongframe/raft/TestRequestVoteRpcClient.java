@@ -18,7 +18,7 @@ public class TestRequestVoteRpcClient {
 
         RpcClientOptions options = new RpcClientOptions();
         RpcRemoteOptions rpcRemoteOptions = new RpcRemoteOptions();
-        rpcRemoteOptions.setNode(new NodeImpl());
+        rpcRemoteOptions.setNode(new NodeImpl(null, null));
         options.setRpcRemoteOptions(rpcRemoteOptions);
 
 
