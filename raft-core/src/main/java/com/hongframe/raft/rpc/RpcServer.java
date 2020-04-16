@@ -2,6 +2,7 @@ package com.hongframe.raft.rpc;
 
 import com.hongframe.raft.option.RpcRemoteOptions;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
+import com.hongframe.raft.rpc.core.RpcService;
 import com.hongframe.raft.rpc.impl.RequestVoteRpcImpl;
 import com.hongframe.raft.util.Endpoint;
 import org.apache.dubbo.config.ApplicationConfig;
@@ -9,6 +10,8 @@ import org.apache.dubbo.config.ProtocolConfig;
 import org.apache.dubbo.config.RegistryConfig;
 import org.apache.dubbo.config.ServiceConfig;
 import org.apache.dubbo.config.bootstrap.DubboBootstrap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +21,8 @@ import java.util.List;
  * @version create time: 2020-04-15 21:11
  */
 public class RpcServer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(RpcServer.class);
 
     private Integer port;
 
@@ -40,7 +45,9 @@ public class RpcServer {
             for (int i = 0; i < servicesInterface.size(); i++) {
                 ServiceConfig service = new ServiceConfig<>();
                 service.setInterface(servicesInterface.get(i));
-                service.setRef(servicesImpl.get(i).newInstance());
+                RpcService rpcService = (RpcService) servicesImpl.get(i).newInstance();
+                rpcService.setNode(this.rpcRemoteOptions.getNode());
+                service.setRef(rpcService);
                 service.setAsync(true);
                 services.add(service);
             }

@@ -1,5 +1,6 @@
 package com.hongframe.raft.option;
 
+import com.hongframe.raft.Node;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import com.hongframe.raft.rpc.impl.RequestVoteRpcImpl;
 
@@ -12,6 +13,7 @@ import java.util.List;
  */
 public class RpcRemoteOptions {
 
+    private Node node;
     private List<Class> servicesInterface = new ArrayList<>();
     private List<Class> servicesImpl = new ArrayList<>();
 
@@ -26,6 +28,14 @@ public class RpcRemoteOptions {
     private void addRaftRequest() {
         servicesInterface.add(RequestVoteRpc.class);
         servicesImpl.add(RequestVoteRpcImpl.class);
+    }
+
+    public Node getNode() {
+        return node;
+    }
+
+    public void setNode(Node node) {
+        this.node = node;
     }
 
     public List<Class> getServicesInterface() {

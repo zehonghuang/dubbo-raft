@@ -1,8 +1,8 @@
 package com.hongframe.raft.rpc.impl;
 
+import com.hongframe.raft.Node;
+import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
-import org.apache.dubbo.rpc.AsyncContext;
-import org.apache.dubbo.rpc.RpcContext;
 
 import static com.hongframe.raft.rpc.RpcRequests.*;
 
@@ -12,27 +12,20 @@ import static com.hongframe.raft.rpc.RpcRequests.*;
  */
 public class RequestVoteRpcImpl implements RequestVoteRpc {
 
+    private NodeImpl node;
+
     @Override
     public RequestVoteResponse preVote(RequestVoteRequest request) {
-        AsyncContext asyncContext = RpcContext.startAsync();
-
-        new Thread(() -> {
-            // 如果要使用上下文，则必须要放在第一句执行
-            asyncContext.signalContextSwitch();
-            System.out.println(request);
-            RequestVoteResponse voteResponse = new RequestVoteResponse();
-            voteResponse.setPreVote(true);
-            voteResponse.setTerm(request.getTerm());
-            // 写回响应
-            asyncContext.write(voteResponse);
-        }).start();
-
-        System.out.println("async ...");
-        return null;
+        return (RequestVoteResponse) this.node.handlePreVoteRequest(request);
     }
 
     @Override
     public RequestVoteResponse requestVote(RequestVoteRequest request) {
-        return null;
+        return (RequestVoteResponse) this.node.handleVoteRequest();
+    }
+
+    @Override
+    public void setNode(Node node) {
+        this.node = (NodeImpl) node;
     }
 }

@@ -1,5 +1,6 @@
 package com.hongframe.raft;
 
+import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcClientOptions;
 import com.hongframe.raft.option.RpcRemoteOptions;
@@ -16,7 +17,10 @@ public class TestRequestVoteRpcClient {
     public static void main(String[] args) {
 
         RpcClientOptions options = new RpcClientOptions();
-        options.setRpcRemoteOptions(new RpcRemoteOptions());
+        RpcRemoteOptions rpcRemoteOptions = new RpcRemoteOptions();
+        rpcRemoteOptions.setNode(new NodeImpl());
+        options.setRpcRemoteOptions(rpcRemoteOptions);
+
 
         PeerId peerId = new PeerId(new Endpoint("localhost", 8888), 0);
         options.addPeerId(peerId);
@@ -29,9 +33,7 @@ public class TestRequestVoteRpcClient {
         voteRequest.setPeerId("localhost:8080");
         voteRequest.setPreVote(true);
 
-        rpcClient.requestVote(peerId, voteRequest, message -> {
-            System.out.println(message);
-        });
+        rpcClient.requestVote(peerId, voteRequest);
 
 
     }

@@ -125,6 +125,18 @@ public class RpcRequests {
         public String seviceName() {
             return RequestVoteRpc.class.getSimpleName();
         }
+
+        @Override
+        public String method() {
+            if(preVote)
+                return "preVote";
+            return "requestVote";
+        }
+
+        @Override
+        public String getName() {
+            return getClass().getName();
+        }
     }
 
     public final static class ErrorResponse implements Message {
@@ -155,10 +167,6 @@ public class RpcRequests {
             this.errorMsg = errorMsg;
         }
 
-        @Override
-        public String seviceName() {
-            return null;
-        }
     }
 
 }
