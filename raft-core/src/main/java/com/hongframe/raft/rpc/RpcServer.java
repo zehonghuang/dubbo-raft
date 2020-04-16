@@ -3,6 +3,7 @@ package com.hongframe.raft.rpc;
 import com.hongframe.raft.option.RpcRemoteOptions;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import com.hongframe.raft.rpc.impl.RequestVoteRpcImpl;
+import com.hongframe.raft.util.Endpoint;
 import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.ProtocolConfig;
 import org.apache.dubbo.config.RegistryConfig;
@@ -26,8 +27,8 @@ public class RpcServer {
 
 
 
-    public RpcServer(int port, RpcRemoteOptions options) {
-        this.port = port;
+    public RpcServer(Endpoint endpoint, RpcRemoteOptions options) {
+        this.port = endpoint.getPort();
         this.rpcRemoteOptions = options;
     }
 
