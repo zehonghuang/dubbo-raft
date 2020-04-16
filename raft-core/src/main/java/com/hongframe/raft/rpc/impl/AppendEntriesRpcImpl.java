@@ -18,8 +18,4 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
         return null;
     }
 
-    @Override
-    public void setNode(Node node) {
-        this.node = (NodeImpl) node;
-    }
 }
