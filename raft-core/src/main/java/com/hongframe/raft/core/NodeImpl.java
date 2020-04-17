@@ -3,6 +3,7 @@ package com.hongframe.raft.core;
 import com.hongframe.raft.DubboRaftRpcFactory;
 import com.hongframe.raft.Node;
 import com.hongframe.raft.NodeManager;
+import com.hongframe.raft.conf.ConfigurationEntry;
 import com.hongframe.raft.entity.Ballot;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.NodeId;
@@ -32,7 +33,8 @@ public class NodeImpl implements Node {
     private final Lock readLock = readWriteLock.readLock();
     private final Lock writeLock = readWriteLock.writeLock();
 
-    private State state;
+    private volatile State state;
+    private long currTerm;
     private Ballot voteCtx = new Ballot();
     private Ballot prevoteCtx = new Ballot();
 
@@ -40,7 +42,7 @@ public class NodeImpl implements Node {
     private PeerId serverId;
     private PeerId leaderId;
     private NodeId nodeId;
-
+    private ConfigurationEntry conf;
 
     private NodeOptions nodeOptions;
 
@@ -58,13 +60,14 @@ public class NodeImpl implements Node {
     @Override
     public boolean init(NodeOptions opts) {
         this.nodeOptions = opts;
+        this.conf.setConf(this.nodeOptions.getConfig());
 
         NodeManager.getInstance().add(this);
 
         this.rpcClient = DubboRaftRpcFactory.createRaftRpcClient();
 
-        this.voteCtx.init(this.nodeOptions.getConfig());
-        this.prevoteCtx.init(this.nodeOptions.getConfig());
+        this.voteCtx.init(this.conf.getConf());
+        this.prevoteCtx.init(this.conf.getConf());
 
         this.electionTimer = new ReentrantTimer("Dubbo-radt-ElectionTimer", this.nodeOptions.getElectionTimeoutMs()) {
             @Override

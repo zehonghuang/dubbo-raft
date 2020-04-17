@@ -35,6 +35,10 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
         this.peers.clear();
     }
 
+    public boolean contains(final PeerId peer) {
+        return this.peers.contains(peer);
+    }
+
     @Override
     public Configuration copy() {
         return new Configuration(this.peers);
