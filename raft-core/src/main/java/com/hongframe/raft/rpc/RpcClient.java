@@ -5,6 +5,7 @@ import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcClientOptions;
+import com.hongframe.raft.option.RpcRemoteOptions;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.dubbo.common.URL;
@@ -20,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.hongframe.raft.rpc.RpcRequests.*;
 
@@ -31,24 +33,27 @@ public class RpcClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(RpcClient.class);
 
-    private RpcClientOptions rpcClientOptions;
+    private RpcRemoteOptions rpcRemoteOptions;
 
-    private Map<PeerId, Map<String, ReferenceConfig>> references = new HashMap<>();
+    private Map<PeerId, Map<String, ReferenceConfig>> references = new ConcurrentHashMap<>();
 
-    public RpcClient(){
+    public RpcClient(RpcRemoteOptions options){
+        this.rpcRemoteOptions = options;
     }
 
-    public void init(RpcClientOptions options) {
-        this.rpcClientOptions = options;
-        for(PeerId peerId : this.rpcClientOptions.getPeerIds()) {
+    public void init(RpcRemoteOptions options) {
+    }
+
+    public boolean connect(PeerId peerId) {
+        if(!references.containsKey(peerId)) {
             references.put(peerId, addReferenceConfig(peerId));
         }
-
+        return true;
     }
 
     private Map<String, ReferenceConfig> addReferenceConfig(PeerId peerId) {
         Map<String, ReferenceConfig> referenceConfigMap = new HashMap<>();
-        List<Class> classes = this.rpcClientOptions.getRpcRemoteOptions().getServicesInterface();
+        List<Class> classes = this.rpcRemoteOptions.getServicesInterface();
         for(Class c : classes) {
             URL url = new URL("dubbo", peerId.getEndpoint().getIp(), peerId.getEndpoint().getPort(), c.getName());
             ReferenceConfig<?> reference = new ReferenceConfig<>();
@@ -72,11 +77,8 @@ public class RpcClient {
     }
 
 
-    public CompletableFuture<?> requestVote(PeerId peerId, RequestVoteRequest request) {
-        return invokeAsync(findReferenceConfig(peerId, request), request, (message) -> {
-            NodeImpl node = (NodeImpl) NodeManager.getInstance().get(request.getGroupId(), peerId);
-            node.handleVoteResponse((RequestVoteResponse) message);
-        });
+    public CompletableFuture<?> requestVote(PeerId peerId, RequestVoteRequest request, Callback callback) {
+        return invokeAsync(findReferenceConfig(peerId, request), request, callback);
     }
 
     private static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Callback callBack) {

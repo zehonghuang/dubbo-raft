@@ -90,12 +90,12 @@ public abstract class ReentrantTimer {
             if (!this.stop) {
                 return;
             }
-            stop = true;
+            stop = false;
             if (this.running) {
                 return;
             }
             this.running = true;
-            // TODO run task
+            schedule();
         } finally {
             this.lock.unlock();
         }

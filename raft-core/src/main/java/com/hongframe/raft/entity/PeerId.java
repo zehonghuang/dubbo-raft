@@ -1,5 +1,6 @@
 package com.hongframe.raft.entity;
 
+import com.hongframe.raft.core.ElectionPriority;
 import com.hongframe.raft.util.Endpoint;
 import com.hongframe.raft.util.Utils;
 import org.apache.commons.lang3.StringUtils;
@@ -107,4 +108,24 @@ public class PeerId {
         return this.idx == other.idx;
     }
 
+    @Override
+    public String toString() {
+        if (this.str == null) {
+            final StringBuilder buf = new StringBuilder(this.endpoint.toString());
+
+            if (this.idx != 0) {
+                buf.append(':').append(this.idx);
+            }
+
+            if (this.priority != ElectionPriority.Disabled) {
+                if (this.idx == 0) {
+                    buf.append(':');
+                }
+                buf.append(':').append(this.priority);
+            }
+
+            this.str = buf.toString();
+        }
+        return this.str;
+    }
 }

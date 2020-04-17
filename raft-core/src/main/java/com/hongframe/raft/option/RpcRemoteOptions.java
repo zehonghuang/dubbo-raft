@@ -1,7 +1,5 @@
 package com.hongframe.raft.option;
 
-import com.hongframe.raft.Node;
-import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import com.hongframe.raft.rpc.impl.AppendEntriesRpcImpl;
@@ -16,12 +14,10 @@ import java.util.List;
  */
 public class RpcRemoteOptions {
 
-    private PeerId serverId;
     private List<Class> servicesInterface = new ArrayList<>();
     private List<Class> servicesImpl = new ArrayList<>();
 
-    public RpcRemoteOptions(PeerId serverId) {
-        this.serverId = serverId;
+    public RpcRemoteOptions() {
         init();
     }
 
@@ -29,13 +25,6 @@ public class RpcRemoteOptions {
         addRaftRequest();
     }
 
-    public PeerId getServerId() {
-        return serverId;
-    }
-
-    public void setServerId(PeerId serverId) {
-        this.serverId = serverId;
-    }
 
     private void addRaftRequest() {
         addRaftRequest0(RequestVoteRpc.class, RequestVoteRpcImpl.class);

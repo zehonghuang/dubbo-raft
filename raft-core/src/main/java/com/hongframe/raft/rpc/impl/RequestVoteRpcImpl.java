@@ -18,7 +18,6 @@ public class RequestVoteRpcImpl implements RequestVoteRpc {
 
     @Override
     public RequestVoteResponse preVote(RequestVoteRequest request) {
-        LOG.info("into preVote");
         NodeImpl node = getNode(request);
         return (RequestVoteResponse) node.handlePreVoteRequest(request);
     }

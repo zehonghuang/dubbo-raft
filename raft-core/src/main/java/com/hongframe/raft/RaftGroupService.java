@@ -3,7 +3,6 @@ package com.hongframe.raft;
 import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.NodeOptions;
-import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,19 +21,16 @@ public class RaftGroupService {
 
     private RpcServer rpcServer;
 
-    private RpcClient rpcClient;
-
     private String groupId;
 
     private Node node;
 
     private NodeOptions nodeOptions;
 
-    public RaftGroupService(String groupId, PeerId peerId, NodeOptions options, RpcServer rpcServer, RpcClient rpcClient) {
+    public RaftGroupService(String groupId, PeerId peerId, NodeOptions options, RpcServer rpcServer) {
         this.groupId = groupId;
         this.peerId = peerId;
         this.rpcServer = rpcServer;
-        this.rpcClient = rpcClient;
         this.nodeOptions = options;
     }
 
@@ -42,8 +38,11 @@ public class RaftGroupService {
         NodeManager.getInstance().addAddress(this.peerId.getEndpoint());
 
         this.node = new NodeImpl(this.groupId, this.peerId);
-        this.node.init(null);
+        this.node.init(nodeOptions);
         this.rpcServer.init();
+
+        this.started = true;
+        LOG.info("node started...");
         return node;
     }
 

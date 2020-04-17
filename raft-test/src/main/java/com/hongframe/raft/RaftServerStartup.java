@@ -22,40 +22,24 @@ public class RaftServerStartup {
 
     public static Node startup(int port, String servers) {
 
+        Endpoint endpoint = new Endpoint("localhost", port);
+        PeerId serverId = new PeerId(endpoint, 0);
+
+
+        RpcServer rpcServer = DubboRaftRpcFactory.createRaftRpcServer(endpoint);
+
         Configuration configuration = new Configuration();
         configuration.parse(servers);
 
         NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setConfig(configuration);
 
-        Endpoint endpoint = new Endpoint("localhost", port);
-        PeerId serverId = new PeerId(endpoint, 0);
-
-        RpcRemoteOptions rpcRemoteOptions = new RpcRemoteOptions(serverId);
-
-        RpcServer rpcServer = createServer(endpoint, rpcRemoteOptions);
-
-        RpcClient rpcClient = createClient(nodeOptions, rpcRemoteOptions);
-
-        RaftGroupService raftGroupService = new RaftGroupService("raft", rpcRemoteOptions.getServerId(), nodeOptions, rpcServer, rpcClient);
+        RaftGroupService raftGroupService = new RaftGroupService("raft", serverId, nodeOptions, rpcServer);
         Node node = raftGroupService.start();
         LOG.info("started...");
 
         return node;
     }
 
-    private static RpcServer createServer(Endpoint endpoint, RpcRemoteOptions options) {
-        RpcServer rpcServer = new RpcServer(endpoint, options);
-        return rpcServer;
-    }
-
-    private static RpcClient createClient(NodeOptions nodeOptions, RpcRemoteOptions rpcRemoteOptions) {
-        RpcClientOptions options = new RpcClientOptions();
-        options.setRpcRemoteOptions(rpcRemoteOptions);
-        options.addPeerIds(nodeOptions.getConfig().getPeers());
-        RpcClient rpcClient = new RpcClient();
-        rpcClient.init(options);
-        return rpcClient;
-    }
 
 }
