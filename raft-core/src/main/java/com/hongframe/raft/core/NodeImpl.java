@@ -3,13 +3,13 @@ package com.hongframe.raft.core;
 import com.hongframe.raft.DubboRaftRpcFactory;
 import com.hongframe.raft.Node;
 import com.hongframe.raft.NodeManager;
+import com.hongframe.raft.Status;
 import com.hongframe.raft.conf.ConfigurationEntry;
-import com.hongframe.raft.entity.Ballot;
-import com.hongframe.raft.entity.Message;
-import com.hongframe.raft.entity.NodeId;
-import com.hongframe.raft.entity.PeerId;
+import com.hongframe.raft.entity.*;
 import com.hongframe.raft.option.NodeOptions;
 import com.hongframe.raft.rpc.RpcClient;
+import com.hongframe.raft.storage.LogManager;
+import com.hongframe.raft.storage.impl.LogManagerImpl;
 import com.hongframe.raft.util.ReentrantTimer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +41,7 @@ public class NodeImpl implements Node {
     private String groupId;
     private PeerId serverId;
     private PeerId leaderId;
+    private PeerId voteId;
     private NodeId nodeId;
     private ConfigurationEntry conf;
 
@@ -51,6 +52,8 @@ public class NodeImpl implements Node {
     private ReentrantTimer voteTimer;
     private ReentrantTimer electionTimer;
 
+    private LogManager logManager;
+
 
     public NodeImpl(String groupId, PeerId serverId) {
         this.groupId = groupId;
@@ -59,6 +62,8 @@ public class NodeImpl implements Node {
 
     @Override
     public boolean init(NodeOptions opts) {
+
+        this.logManager = new LogManagerImpl();
         this.nodeOptions = opts;
         this.conf.setConf(this.nodeOptions.getConfig());
 
@@ -81,6 +86,7 @@ public class NodeImpl implements Node {
             }
         };
 
+        this.state = State.STATE_FOLLOWER;
         return true;
     }
 
@@ -110,7 +116,70 @@ public class NodeImpl implements Node {
     }
 
     private void handleElectionTimeout() {
+        this.writeLock.lock();
+        try {
+            preVote();
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
 
+    private void preVote() {
+        long oldTerm;
+        this.writeLock.lock();
+        try {
+            oldTerm = this.currTerm;
+        } finally {
+            this.writeLock.unlock();
+        }
+
+        final LogId lastLogId = this.logManager.getLastLogId(true);//刷盘需要一段时间，所以释放锁，提高并发性
+
+        this.writeLock.lock();
+        try {
+            if(this.currTerm != oldTerm) {
+                return;
+            }
+            this.prevoteCtx.init(this.conf.getConf());
+            for(PeerId peerId : this.conf.getConf().getPeers()) {
+                if(peerId.equals(this.serverId)) {
+                    continue;
+                }
+                if(!rpcClient.connect(peerId)) {
+                    LOG.error("fail connection peer: {}", peerId);
+                }
+                RequestVoteRequest voteRequest = new RequestVoteRequest();
+                voteRequest.setPreVote(true);
+                voteRequest.setGroupId(this.groupId);
+                voteRequest.setPeerId(peerId.toString());
+                voteRequest.setTerm(this.currTerm + 1);
+                voteRequest.setLastLogIndex(lastLogId.getIndex());
+                voteRequest.setLastLogTerm(lastLogId.getTerm());
+
+                this.rpcClient.requestVote(peerId, voteRequest, (message) -> {
+                    NodeImpl.this.handlePreVoteResponse((RequestVoteResponse) message);
+                });
+            }
+
+        } finally {
+            this.writeLock.unlock();
+        }
+
+    }
+
+    private void stepDown(final long term, final Status status) {
+        if(!this.state.isActive()) {
+            return;
+        }
+
+        this.leaderId = PeerId.emptyPeer();
+
+        if(term > this.currTerm) {
+            this.currTerm = term;
+            this.voteId = PeerId.emptyPeer();
+        }
+
+        electionTimer.start();
     }
 
     @Override
