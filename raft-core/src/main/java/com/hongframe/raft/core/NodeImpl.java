@@ -65,6 +65,7 @@ public class NodeImpl implements Node {
 
         this.logManager = new LogManagerImpl();
         this.nodeOptions = opts;
+        this.conf = new ConfigurationEntry();
         this.conf.setConf(this.nodeOptions.getConfig());
 
         NodeManager.getInstance().add(this);

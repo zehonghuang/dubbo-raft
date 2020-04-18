@@ -1,9 +1,12 @@
 package com.hongframe.raft.rpc.impl;
 
 import com.hongframe.raft.core.NodeImpl;
+import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Objects;
 
 import static com.hongframe.raft.rpc.RpcRequests.*;
 
@@ -17,14 +20,15 @@ public class RequestVoteRpcImpl implements RequestVoteRpc {
 
 
     @Override
-    public RequestVoteResponse preVote(RequestVoteRequest request) {
-        NodeImpl node = getNode(request);
-        return (RequestVoteResponse) node.handlePreVoteRequest(request);
+    public Response<RequestVoteResponse> preVote(RequestVoteRequest request) {
+        Message message = getNode(request).handlePreVoteRequest(request);
+        return checkResponse(message);
     }
 
     @Override
-    public RequestVoteResponse requestVote(RequestVoteRequest request) {
-        return (RequestVoteResponse) getNode(request).handleVoteRequest();
+    public Response<RequestVoteResponse> requestVote(RequestVoteRequest request) {
+        Message message = getNode(request).handleVoteRequest();
+        return checkResponse(message);
     }
 
 }

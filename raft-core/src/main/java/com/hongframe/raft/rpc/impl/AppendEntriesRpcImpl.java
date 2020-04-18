@@ -11,10 +11,8 @@ import com.hongframe.raft.rpc.core.AppendEntriesRpc;
  */
 public class AppendEntriesRpcImpl implements AppendEntriesRpc {
 
-    private NodeImpl node;
-
     @Override
-    public AppendEntriesResponse appendEntries(AppendEntriesRequest request) {
+    public Response<AppendEntriesResponse> appendEntries(AppendEntriesRequest request) {
         return null;
     }
 

@@ -8,6 +8,10 @@ import com.hongframe.raft.entity.Message;
  */
 public interface Callback {
 
-    void run(Message message);
+    void done(Message message);
+
+    default void run(RpcRequests.Response response) {
+        done(response.getData());
+    }
 
 }

@@ -1,10 +1,7 @@
 package com.hongframe.raft.rpc;
 
-import com.hongframe.raft.NodeManager;
-import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.PeerId;
-import com.hongframe.raft.option.RpcClientOptions;
 import com.hongframe.raft.option.RpcRemoteOptions;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -20,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -63,6 +61,7 @@ public class RpcClient {
             reference.setUrl(url.toFullString());
             reference.setGeneric("true");
             reference.setAsync(true);
+//            reference.setMock(null);
             referenceConfigMap.put(c.getSimpleName(), reference);
         }
 
@@ -88,12 +87,10 @@ public class RpcClient {
         CompletableFuture<?> future = RpcContext.getContext().getCompletableFuture();
 
         future.whenComplete((response, e) -> {
-            Map<String, String> map = (Map) response;
+            Map<String, Object> map = (Map) response;
             if(e == null) {
                 try {
-                    Object o = Class.forName(map.get("class")).newInstance();
-                    BeanUtils.populate(o, map);
-                    callBack.run((Message) o);
+                    callBack.run(mapToResponse(map));
                 } catch (Exception e1) {
                     e1.printStackTrace();
                 }
@@ -102,6 +99,23 @@ public class RpcClient {
             }
         });
         return future;
+    }
+
+    private static Response mapToResponse(Map<String, Object> map) throws Exception {
+        Response response = new Response();
+        Map<String, Object> dataMap = (Map<String, Object>) map.get("data");
+        if(Objects.nonNull(dataMap)) {
+            Message message = (Message) Class.forName((String) dataMap.get("class")).newInstance();
+            BeanUtils.populate(message, dataMap);
+            response.setData(message);
+        }
+        Map<String, Object> errorMap = (Map<String, Object>) map.get("error");
+        if(Objects.nonNull(errorMap)) {
+            ErrorResponse errorResponse = (ErrorResponse) Class.forName((String) errorMap.get("class")).newInstance();
+            BeanUtils.populate(errorResponse, errorMap);
+            response.setError(errorResponse);
+        }
+        return response;
     }
 
 }

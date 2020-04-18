@@ -321,4 +321,36 @@ public class RpcRequests {
 
     }
 
+    public final static class Response<T extends Message> {
+        private T data;
+        private ErrorResponse error;
+
+        public Response() {
+        }
+
+        public Response(ErrorResponse error) {
+            this.error = error;
+        }
+
+        public Response(T data) {
+            this.data = data;
+        }
+
+        public T getData() {
+            return data;
+        }
+
+        public void setData(T data) {
+            this.data = data;
+        }
+
+        public ErrorResponse getError() {
+            return error;
+        }
+
+        public void setError(ErrorResponse error) {
+            this.error = error;
+        }
+    }
+
 }

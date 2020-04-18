@@ -8,8 +8,8 @@ import static com.hongframe.raft.rpc.RpcRequests.*;
  */
 public interface RequestVoteRpc extends RpcService  {
 
-    RequestVoteResponse preVote(RequestVoteRequest request);
+    Response<RequestVoteResponse> preVote(RequestVoteRequest request);
 
-    RequestVoteResponse requestVote(RequestVoteRequest request);
+    Response<RequestVoteResponse> requestVote(RequestVoteRequest request);
 
 }
