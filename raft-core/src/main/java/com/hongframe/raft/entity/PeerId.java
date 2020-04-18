@@ -77,6 +77,18 @@ public class PeerId {
         }
     }
 
+    public String getIp() {
+        return this.endpoint.getIp();
+    }
+
+    public int getPort() {
+        return this.endpoint.getPort();
+    }
+
+    public boolean isEmpty() {
+        return getIp().equals(Utils.IP_ANY) && getPort() == 0 && this.idx == 0;
+    }
+
     @Override
     public int hashCode() {
         final int prime = 31;

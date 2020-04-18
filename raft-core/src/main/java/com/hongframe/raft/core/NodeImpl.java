@@ -12,6 +12,7 @@ import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.impl.LogManagerImpl;
 import com.hongframe.raft.util.ReentrantTimer;
+import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +46,7 @@ public class NodeImpl implements Node {
     private PeerId voteId;
     private NodeId nodeId;
     private ConfigurationEntry conf;
+    private volatile long lastLeaderTimestamp;
 
     private NodeOptions nodeOptions;
 
@@ -98,12 +100,49 @@ public class NodeImpl implements Node {
         return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs + timeoutMs << 1);
     }
 
-    public Message handlePreVoteRequest(final RequestVoteRequest voteRequest) {
-        RequestVoteResponse voteResponse = new RequestVoteResponse();
-        voteResponse.setPreVote(true);
-        voteResponse.setTerm(voteRequest.getTerm());
-        LOG.info(voteRequest.toString());
-        return voteResponse;
+    public Message handlePreVoteRequest(final RequestVoteRequest request) {
+
+        try {
+            this.writeLock.lock();
+            if(!this.state.isActive()) {
+                return null;
+            }
+            final PeerId candidateId = new PeerId();
+            if(!candidateId.parse(request.getServerId())) {
+                return null;
+            }
+            boolean granted = false;
+
+            do {
+                if(this.leaderId != null && this.leaderId.isEmpty() && isCurrentLeaderValid()) {
+                    break;
+                }
+                if(request.getTerm() < this.currTerm) {
+                    //TODO 检查复制器
+                    break;
+                } else if (request.getTerm() == this.currTerm + 1) {
+                    //TODO 检查复制器
+                }
+                this.writeLock.unlock();
+
+                final LogId lastLogId = this.logManager.getLastLogId(true);
+
+                this.writeLock.lock();
+
+                final LogId requestLastLogId = new LogId(request.getTerm(), request.getLastLogIndex());
+
+                granted = requestLastLogId.compareTo(lastLogId) >= 0;
+            } while (false);//为了break出来
+
+            RequestVoteResponse response = new RequestVoteResponse();
+            response.setGranted(granted);
+            response.setTerm(this.currTerm);
+            response.setPreVote(true);
+            return request;
+        } finally {
+            this.writeLock.unlock();
+        }
+
     }
 
     public void handlePreVoteResponse(RequestVoteResponse voteResponse) {
@@ -116,7 +155,7 @@ public class NodeImpl implements Node {
 
 
     public void handleVoteResponse(RequestVoteResponse voteResponse) {
-        System.out.println(voteResponse);
+
     }
 
     private void handleElectionTimeout() {
@@ -204,6 +243,10 @@ public class NodeImpl implements Node {
         }
 
         electionTimer.start();
+    }
+
+    private boolean isCurrentLeaderValid() {
+        return Utils.monotonicMs() - this.lastLeaderTimestamp < this.nodeOptions.getElectionTimeoutMs();
     }
 
     @Override

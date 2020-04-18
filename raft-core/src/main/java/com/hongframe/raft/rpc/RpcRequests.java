@@ -143,7 +143,16 @@ public class RpcRequests {
 
     public static final class RequestVoteResponse implements Message {
         private Long term;
+        private Boolean granted;
         private Boolean preVote;
+
+        public Boolean getGranted() {
+            return granted;
+        }
+
+        public void setGranted(Boolean granted) {
+            this.granted = granted;
+        }
 
         public Long getTerm() {
             return term;
