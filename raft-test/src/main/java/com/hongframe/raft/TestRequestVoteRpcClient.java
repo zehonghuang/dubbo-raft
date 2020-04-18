@@ -4,9 +4,13 @@ import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcClientOptions;
 import com.hongframe.raft.option.RpcRemoteOptions;
+import com.hongframe.raft.rpc.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcRequests;
 import com.hongframe.raft.util.Endpoint;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -28,9 +32,16 @@ public class TestRequestVoteRpcClient {
         voteRequest.setPeerId("localhost:8888");
         voteRequest.setPreVote(true);
 
-        rpcClient.requestVote(peerId, voteRequest, message -> {
-            System.out.println(message);
-        });
+        try {
+            System.out.println(rpcClient.requestVote(peerId, voteRequest, new ResponseCallbackAdapter() {
+                @Override
+                public void run(Status status) {
+                    getResponse();
+                }
+            }));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
 
     }

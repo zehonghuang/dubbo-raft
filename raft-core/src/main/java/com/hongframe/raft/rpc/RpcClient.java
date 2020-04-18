@@ -35,7 +35,7 @@ public class RpcClient {
 
     private Map<PeerId, Map<String, ReferenceConfig>> references = new ConcurrentHashMap<>();
 
-    public RpcClient(RpcRemoteOptions options){
+    public RpcClient(RpcRemoteOptions options) {
         this.rpcRemoteOptions = options;
     }
 
@@ -43,7 +43,7 @@ public class RpcClient {
     }
 
     public boolean connect(PeerId peerId) {
-        if(!references.containsKey(peerId)) {
+        if (!references.containsKey(peerId)) {
             references.put(peerId, addReferenceConfig(peerId));
         }
         return true;
@@ -52,7 +52,7 @@ public class RpcClient {
     private Map<String, ReferenceConfig> addReferenceConfig(PeerId peerId) {
         Map<String, ReferenceConfig> referenceConfigMap = new HashMap<>();
         List<Class> classes = this.rpcRemoteOptions.getServicesInterface();
-        for(Class c : classes) {
+        for (Class c : classes) {
             URL url = new URL("dubbo", peerId.getEndpoint().getIp(), peerId.getEndpoint().getPort(), c.getName());
             ReferenceConfig<?> reference = new ReferenceConfig<>();
             reference.setApplication(new ApplicationConfig("dubbo-demo-api-consumer"));
@@ -61,7 +61,7 @@ public class RpcClient {
             reference.setUrl(url.toFullString());
             reference.setGeneric("true");
             reference.setAsync(true);
-//            reference.setMock(null);
+            reference.setTimeout(1000);
             referenceConfigMap.put(c.getSimpleName(), reference);
         }
 
@@ -69,7 +69,7 @@ public class RpcClient {
     }
 
     private ReferenceConfig findReferenceConfig(PeerId peerId, Message message) {
-        if(StringUtils.isNotBlank(message.seviceName())) {
+        if (StringUtils.isNotBlank(message.seviceName())) {
             return references.get(peerId).get(message.seviceName());
         }
         return null;
@@ -82,35 +82,38 @@ public class RpcClient {
 
     private static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Callback callBack) {
         GenericService genericService = (GenericService) reference.get();
-        genericService.$invoke(request.method(), new String[] { request.getName() },
-                new Object[] { request });
-        CompletableFuture<?> future = RpcContext.getContext().getCompletableFuture();
+
+        genericService.$invoke(request.method(), new String[]{request.getName()},
+                new Object[]{request});
+        CompletableFuture<?> future  = RpcContext.getContext().getCompletableFuture();
 
         future.whenComplete((response, e) -> {
             Map<String, Object> map = (Map) response;
-            if(e == null) {
+            if (e == null) {
                 try {
-                    callBack.run(mapToResponse(map));
+                    callBack.invoke(mapToResponse(map));
                 } catch (Exception e1) {
                     e1.printStackTrace();
                 }
             } else {
-                e.fillInStackTrace();
+                callBack.invoke(new Response(new ErrorResponse(10001, e.toString())));
+                e.printStackTrace();
             }
         });
+
         return future;
     }
 
     private static Response mapToResponse(Map<String, Object> map) throws Exception {
         Response response = new Response();
         Map<String, Object> dataMap = (Map<String, Object>) map.get("data");
-        if(Objects.nonNull(dataMap)) {
+        if (Objects.nonNull(dataMap)) {
             Message message = (Message) Class.forName((String) dataMap.get("class")).newInstance();
             BeanUtils.populate(message, dataMap);
             response.setData(message);
         }
         Map<String, Object> errorMap = (Map<String, Object>) map.get("error");
-        if(Objects.nonNull(errorMap)) {
+        if (Objects.nonNull(errorMap)) {
             ErrorResponse errorResponse = (ErrorResponse) Class.forName((String) errorMap.get("class")).newInstance();
             BeanUtils.populate(errorResponse, errorMap);
             response.setError(errorResponse);

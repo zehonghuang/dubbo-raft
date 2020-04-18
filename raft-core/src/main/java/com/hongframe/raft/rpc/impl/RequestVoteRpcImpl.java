@@ -22,6 +22,11 @@ public class RequestVoteRpcImpl implements RequestVoteRpc {
     @Override
     public Response<RequestVoteResponse> preVote(RequestVoteRequest request) {
         Message message = getNode(request).handlePreVoteRequest(request);
+        try {
+            Thread.sleep(1000000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         return checkResponse(message);
     }
 

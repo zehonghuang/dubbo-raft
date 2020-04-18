@@ -16,6 +16,7 @@ public class RpcRemoteOptions {
 
     private List<Class> servicesInterface = new ArrayList<>();
     private List<Class> servicesImpl = new ArrayList<>();
+    private List<Class> servicesMock = new ArrayList<>();
 
     public RpcRemoteOptions() {
         init();
@@ -27,13 +28,14 @@ public class RpcRemoteOptions {
 
 
     private void addRaftRequest() {
-        addRaftRequest0(RequestVoteRpc.class, RequestVoteRpcImpl.class);
-        addRaftRequest0(AppendEntriesRpc.class, AppendEntriesRpcImpl.class);
+        addRaftRequest0(RequestVoteRpc.class, RequestVoteRpcImpl.class, null);
+        addRaftRequest0(AppendEntriesRpc.class, AppendEntriesRpcImpl.class, null);
     }
 
-    private void addRaftRequest0(Class interfacez, Class implz) {
+    private void addRaftRequest0(Class interfacez, Class implz, Class mock) {
         servicesInterface.add(interfacez);
         servicesImpl.add(implz);
+        servicesMock.add(mock);
     }
 
 
@@ -43,5 +45,9 @@ public class RpcRemoteOptions {
 
     public List<Class> getServicesImpl() {
         return servicesImpl;
+    }
+
+    public List<Class> getServicesMock() {
+        return servicesMock;
     }
 }

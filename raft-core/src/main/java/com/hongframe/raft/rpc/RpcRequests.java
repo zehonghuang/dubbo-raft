@@ -293,6 +293,14 @@ public class RpcRequests {
                     '}';
         }
 
+        public ErrorResponse() {
+        }
+
+        public ErrorResponse(Integer errorCode, String errorMsg) {
+            this.errorCode = errorCode;
+            this.errorMsg = errorMsg;
+        }
+
         @Override
         public String getGroupId() {
             return null;
@@ -350,6 +358,14 @@ public class RpcRequests {
 
         public void setError(ErrorResponse error) {
             this.error = error;
+        }
+
+        @Override
+        public String toString() {
+            return "Response{" +
+                    "data=" + data +
+                    ", error=" + error +
+                    '}';
         }
     }
 

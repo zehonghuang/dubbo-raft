@@ -5,4 +5,9 @@ package com.hongframe.raft;
  * create time: 2020-04-17 17:27
  */
 public class Status {
+
+    public static Status OK() {
+        return new Status();
+    }
+
 }

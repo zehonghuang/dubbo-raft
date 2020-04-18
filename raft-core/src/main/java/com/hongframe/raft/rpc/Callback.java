@@ -1,5 +1,6 @@
 package com.hongframe.raft.rpc;
 
+import com.hongframe.raft.Status;
 import com.hongframe.raft.entity.Message;
 
 /**
@@ -8,10 +9,10 @@ import com.hongframe.raft.entity.Message;
  */
 public interface Callback {
 
-    void done(Message message);
+    void run(Status status);
 
-    default void run(RpcRequests.Response response) {
-        done(response.getData());
+    default void invoke(RpcRequests.Response response) {
+
     }
 
 }
