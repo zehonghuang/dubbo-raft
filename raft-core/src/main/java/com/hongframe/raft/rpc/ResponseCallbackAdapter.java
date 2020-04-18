@@ -27,6 +27,8 @@ public abstract class ResponseCallbackAdapter implements ResponseCallback {
         if(Objects.nonNull(message)) {
             setResponse(message);
             run(Status.OK());
+        } else {
+            run(new Status(response.getError().getErrorCode(), response.getError().getErrorMsg()));
         }
     }
 }

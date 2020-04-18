@@ -1,7 +1,5 @@
 package com.hongframe.raft.rpc.impl;
 
-import com.hongframe.raft.Node;
-import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.rpc.RpcRequests.*;
 import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 

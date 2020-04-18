@@ -97,7 +97,6 @@ public class RpcClient {
                 }
             } else {
                 callBack.invoke(new Response(new ErrorResponse(10001, e.toString())));
-                e.printStackTrace();
             }
         });
 
