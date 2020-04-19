@@ -32,7 +32,7 @@ public abstract class ReentrantTimer {
 
 
     public ReentrantTimer(String name, int timeoutMs) {
-        this(name, new HashedWheelTimer(), timeoutMs);
+        this(name, new HashedWheelTimer(new NamedThreadFactory(name, false), 1l, TimeUnit.MILLISECONDS, 256), timeoutMs);
     }
 
     public ReentrantTimer(String name, Timer timer, int timeoutMs) {

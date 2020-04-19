@@ -145,8 +145,30 @@ public class NodeImpl implements Node {
 
     }
 
-    public void handlePreVoteResponse(RequestVoteResponse voteResponse) {
-        LOG.info(voteResponse.toString());
+    public void handlePreVoteResponse(PeerId peerId, long term, RequestVoteResponse voteResponse) {
+        this.writeLock.lock();
+        try {
+            if(this.state != State.STATE_FOLLOWER) {
+                //不再是follower，不必要处理预选投票
+                return;
+            }
+            if(this.currTerm != term) {
+                //currTerm节点任期变了，无效
+                return;
+            }
+            if(voteResponse.getTerm() > this.currTerm) {
+                stepDown(voteResponse.getTerm(), null);
+                return;
+            }
+            if(voteResponse.getGranted()) {
+                this.prevoteCtx.grant(peerId);
+                if(this.prevoteCtx.isGranted()) {
+                    //TODO 进行下一轮投票
+                }
+            }
+        } finally {
+            this.writeLock.unlock();
+        }
     }
 
     public Message handleVoteRequest() {
@@ -184,7 +206,7 @@ public class NodeImpl implements Node {
             if (!status.isOk()) {
                 LOG.warn(status.getErrorMsg());
             }
-            NodeImpl.this.handlePreVoteResponse((RequestVoteResponse) getResponse());
+            NodeImpl.this.handlePreVoteResponse(peerId, term, (RequestVoteResponse) getResponse());
         }
     }
 
