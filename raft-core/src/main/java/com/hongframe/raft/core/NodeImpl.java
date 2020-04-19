@@ -10,12 +10,15 @@ import com.hongframe.raft.option.NodeOptions;
 import com.hongframe.raft.rpc.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
+import com.hongframe.raft.storage.RaftMetaStorage;
 import com.hongframe.raft.storage.impl.LogManagerImpl;
+import com.hongframe.raft.storage.impl.RaftMetaStorageImpl;
 import com.hongframe.raft.util.ReentrantTimer;
 import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -56,6 +59,7 @@ public class NodeImpl implements Node {
     private ReentrantTimer electionTimer;
 
     private LogManager logManager;
+    private RaftMetaStorage metaStorage;
 
 
     public NodeImpl(String groupId, PeerId serverId) {
@@ -67,6 +71,10 @@ public class NodeImpl implements Node {
     public boolean init(NodeOptions opts) {
 
         this.logManager = new LogManagerImpl();
+        this.metaStorage = new RaftMetaStorageImpl("." + File.separator + "raft_meta");
+        this.currTerm = this.metaStorage.getTerm();
+        this.voteId = this.metaStorage.getVotedFor().copy();
+
         this.nodeOptions = opts;
         this.conf = new ConfigurationEntry();
         this.conf.setConf(this.nodeOptions.getConfig());
@@ -171,10 +179,9 @@ public class NodeImpl implements Node {
         }
     }
 
-    public Message handleVoteRequest() {
+    public Message handleRequestVoteRequest(final RequestVoteRequest request) {
         return null;
     }
-
 
     public void handleVoteResponse(RequestVoteResponse voteResponse) {
 
@@ -187,6 +194,10 @@ public class NodeImpl implements Node {
         } finally {
             this.writeLock.unlock();
         }
+    }
+
+    private void handleVoteTimeout() {
+
     }
 
     private final class PreVoteResponseCallback extends ResponseCallbackAdapter {
@@ -301,10 +312,20 @@ public class NodeImpl implements Node {
                     continue;
                 }
                 RequestVoteRequest request = new RequestVoteRequest();
-                //TODO RequestVoteRequest
+                request.setGroupId(this.groupId);
+                request.setPeerId(peerId.toString());
+                request.setServerId(this.serverId.toString());
+                request.setTerm(this.currTerm);
+                request.setLastLogTerm(lastLogId.getTerm());
+                request.setLastLogIndex(lastLogId.getIndex());
+                //TODO Callback
                 this.rpcClient.requestVote(peerId, request, null);
             }
-
+            this.metaStorage.setTermAndVotedFor(this.currTerm, this.serverId);
+            this.voteCtx.grant(this.serverId);
+            if(this.voteCtx.isGranted()) {
+                //TODO becomeLeader();
+            }
 
         } finally {
             this.writeLock.unlock();

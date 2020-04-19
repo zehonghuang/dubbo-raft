@@ -25,7 +25,7 @@ public class RequestVoteRpcImpl implements RequestVoteRpc {
 
     @Override
     public Response<RequestVoteResponse> requestVote(RequestVoteRequest request) {
-        Message message = getNode(request).handleVoteRequest();
+        Message message = getNode(request).handleRequestVoteRequest(request);
         return checkResponse(message);
     }
 
