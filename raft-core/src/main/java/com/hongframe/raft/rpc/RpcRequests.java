@@ -1,6 +1,7 @@
 package com.hongframe.raft.rpc;
 
 import com.hongframe.raft.entity.Message;
+import com.hongframe.raft.rpc.core.MembershipChangeRpc;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 
 /**
@@ -8,6 +9,246 @@ import com.hongframe.raft.rpc.core.RequestVoteRpc;
  * @version create time: 2020-04-15 21:25
  */
 public class RpcRequests {
+
+    public static final class ChangePeersRequest implements Message {
+        private String groupId;
+        private String leaderId;
+        private String newPeers;
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        public String getLeaderId() {
+            return leaderId;
+        }
+
+        public void setLeaderId(String leaderId) {
+            this.leaderId = leaderId;
+        }
+
+        public String getNewPeers() {
+            return newPeers;
+        }
+
+        public void setNewPeers(String newPeers) {
+            this.newPeers = newPeers;
+        }
+
+        @Override
+        public String getPeerId() {
+            return null;
+        }
+
+        @Override
+        public String getGroupId() {
+            return this.groupId;
+        }
+
+        @Override
+        public String seviceName() {
+            return MembershipChangeRpc.class.getName();
+        }
+
+        @Override
+        public String method() {
+            return "changePeer";
+        }
+
+        @Override
+        public String getName() {
+            return getClass().getName();
+        }
+    }
+
+    public static final class ChangePeersResponse implements Message {
+
+        private String oldPeers;
+        private String newPeers;
+
+        public String getOldPeers() {
+            return oldPeers;
+        }
+
+        public void setOldPeers(String oldPeers) {
+            this.oldPeers = oldPeers;
+        }
+
+        public String getNewPeers() {
+            return newPeers;
+        }
+
+        public void setNewPeers(String newPeers) {
+            this.newPeers = newPeers;
+        }
+
+        @Override
+        public String getPeerId() {
+            return null;
+        }
+
+        @Override
+        public String getGroupId() {
+            return null;
+        }
+    }
+
+    public static final class RemovePeerRequest implements Message {
+        private String leaderId;
+        private String peerId;
+        private String groupId;
+
+        public String getLeaderId() {
+            return leaderId;
+        }
+
+        public void setLeaderId(String leaderId) {
+            this.leaderId = leaderId;
+        }
+
+        public void setPeerId(String peerId) {
+            this.peerId = peerId;
+        }
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        @Override
+        public String getPeerId() {
+            return this.peerId;
+        }
+
+        @Override
+        public String getGroupId() {
+            return this.groupId;
+        }
+
+        @Override
+        public String seviceName() {
+            return MembershipChangeRpc.class.getName();
+        }
+
+        @Override
+        public String method() {
+            return "removePeer";
+        }
+
+        @Override
+        public String getName() {
+            return getClass().getName();
+        }
+    }
+
+    public static final class RemovePeerResponse implements Message {
+        private String oldPeers;
+        private String newPeers;
+
+        @Override
+        public String getPeerId() {
+            return null;
+        }
+
+        @Override
+        public String getGroupId() {
+            return null;
+        }
+
+        public String getOldPeers() {
+            return oldPeers;
+        }
+
+        public void setOldPeers(String oldPeers) {
+            this.oldPeers = oldPeers;
+        }
+
+        public String getNewPeers() {
+            return newPeers;
+        }
+
+        public void setNewPeers(String newPeers) {
+            this.newPeers = newPeers;
+        }
+    }
+
+    public static final class AddPeerRequest implements Message {
+
+        private String leaderId;
+        private String peerId;
+        private String groupId;
+
+        public String getLeaderId() {
+            return leaderId;
+        }
+
+        public void setLeaderId(String leaderId) {
+            this.leaderId = leaderId;
+        }
+
+        public void setPeerId(String peerId) {
+            this.peerId = peerId;
+        }
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        @Override
+        public String getPeerId() {
+            return this.peerId;
+        }
+
+        @Override
+        public String getGroupId() {
+            return this.groupId;
+        }
+
+        @Override
+        public String seviceName() {
+            return MembershipChangeRpc.class.getName();
+        }
+
+        @Override
+        public String method() {
+            return "addPeer";
+        }
+
+        @Override
+        public String getName() {
+            return getClass().getName();
+        }
+    }
+
+    public static final class AddPeerResponse implements Message {
+        private String oldPeers;
+        private String newPeers;
+
+        @Override
+        public String getPeerId() {
+            return null;
+        }
+
+        @Override
+        public String getGroupId() {
+            return null;
+        }
+
+        public String getOldPeers() {
+            return oldPeers;
+        }
+
+        public void setOldPeers(String oldPeers) {
+            this.oldPeers = oldPeers;
+        }
+
+        public String getNewPeers() {
+            return newPeers;
+        }
+
+        public void setNewPeers(String newPeers) {
+            this.newPeers = newPeers;
+        }
+    }
 
     public static final class AppendEntriesRequest implements Message {
         private String groupId;
@@ -279,7 +520,7 @@ public class RpcRequests {
 
         @Override
         public String method() {
-            if(preVote)
+            if (preVote)
                 return "preVote";
             return "requestVote";
         }

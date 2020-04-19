@@ -163,7 +163,7 @@ public class NodeImpl implements Node {
             if(voteResponse.getGranted()) {
                 this.prevoteCtx.grant(peerId);
                 if(this.prevoteCtx.isGranted()) {
-                    //TODO 进行下一轮投票
+                    electSelf();
                 }
             }
         } finally {
@@ -265,6 +265,51 @@ public class NodeImpl implements Node {
         }
 
         electionTimer.start();
+    }
+
+    private void electSelf() {
+        this.writeLock.lock();
+        long oldTerm;
+        try {
+            if(this.conf.contains(this.serverId)) {
+                //该节点被移除
+                return;
+            }
+            if(this.state == State.STATE_FOLLOWER) {
+                this.electionTimer.stop();
+            }
+            this.leaderId = PeerId.emptyPeer();
+            this.state = State.STATE_CANDIDATE;
+            this.currTerm++;
+            this.voteId = this.serverId.copy();
+            //TODO vote timer 未实现
+            this.voteCtx.init(this.conf.getConf());
+            oldTerm = this.currTerm;
+        } finally {
+            this.writeLock.unlock();
+        }
+
+        final LogId lastLogId = this.logManager.getLastLogId(true);
+
+        this.writeLock.lock();
+        try {
+            if(this.currTerm != oldTerm) {
+                return;
+            }
+            for(PeerId peerId : this.conf.getConf().getPeers()) {
+                if(!this.rpcClient.connect(peerId)) {
+                    continue;
+                }
+                RequestVoteRequest request = new RequestVoteRequest();
+                //TODO RequestVoteRequest
+                this.rpcClient.requestVote(peerId, request, null);
+            }
+
+
+        } finally {
+            this.writeLock.unlock();
+        }
+
     }
 
     private boolean isCurrentLeaderValid() {

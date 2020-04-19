@@ -1,6 +1,7 @@
 package com.hongframe.raft.entity;
 
 import com.hongframe.raft.core.ElectionPriority;
+import com.hongframe.raft.util.Copiable;
 import com.hongframe.raft.util.Endpoint;
 import com.hongframe.raft.util.Utils;
 import org.apache.commons.lang3.StringUtils;
@@ -9,7 +10,7 @@ import org.apache.commons.lang3.StringUtils;
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
  * @version create time: 2020-04-15 21:29
  */
-public class PeerId {
+public class PeerId implements Copiable<PeerId> {
 
     private Endpoint endpoint = new Endpoint(Utils.IP_ANY, 0);
 
@@ -139,5 +140,10 @@ public class PeerId {
             this.str = buf.toString();
         }
         return this.str;
+    }
+
+    @Override
+    public PeerId copy() {
+        return new PeerId(this.endpoint, this.idx);
     }
 }
