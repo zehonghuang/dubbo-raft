@@ -1,9 +1,6 @@
 package com.hongframe.raft.core;
 
-import com.hongframe.raft.DubboRaftRpcFactory;
-import com.hongframe.raft.Node;
-import com.hongframe.raft.NodeManager;
-import com.hongframe.raft.Status;
+import com.hongframe.raft.*;
 import com.hongframe.raft.conf.ConfigurationEntry;
 import com.hongframe.raft.entity.*;
 import com.hongframe.raft.option.NodeOptions;
@@ -60,11 +57,13 @@ public class NodeImpl implements Node {
 
     private LogManager logManager;
     private RaftMetaStorage metaStorage;
+    private ReplicatorGroup replicatorGroup;
 
 
     public NodeImpl(String groupId, PeerId serverId) {
         this.groupId = groupId;
         this.serverId = serverId;
+        this.nodeId = new NodeId(this.groupId, this.serverId);
     }
 
     @Override
@@ -74,6 +73,10 @@ public class NodeImpl implements Node {
         this.metaStorage = new RaftMetaStorageImpl("." + File.separator + "raft_meta");
         this.currTerm = this.metaStorage.getTerm();
         this.voteId = this.metaStorage.getVotedFor().copy();
+
+        this.replicatorGroup = new ReplicatorGroupImpl();
+        //TODO ReplicatorGroupOptions
+        this.replicatorGroup.init(this.nodeId.copy(), null);
 
         this.nodeOptions = opts;
         this.conf = new ConfigurationEntry();
@@ -226,8 +229,28 @@ public class NodeImpl implements Node {
         }
     }
 
-    public void handleRequestVoteResponse(final long term, final PeerId peerId, RequestVoteResponse voteResponse) {
+    public void handleRequestVoteResponse(final long term, final PeerId peerId, RequestVoteResponse response) {
+        this.writeLock.lock();
 
+        try {
+            if(this.state != State.STATE_CANDIDATE) {
+                return;
+            }
+            if(this.currTerm != term) {
+                return;
+            }
+            if(response.getTerm() > this.currTerm) {
+                stepDown(response.getTerm(), new Status());
+            }
+            if(response.getGranted()) {
+                this.voteCtx.grant(peerId);
+                if(this.voteCtx.isGranted()) {
+                    becomeLeader();
+                }
+            }
+        } finally {
+            this.writeLock.unlock();
+        }
     }
 
     private void handleElectionTimeout() {
@@ -327,6 +350,11 @@ public class NodeImpl implements Node {
 
     }
 
+    private void becomeLeader() {
+        //TODO becomeLeader
+        this.state = State.STATE_LEADER;
+    }
+
     private void stepDown(final long term, final Status status) {
         if (!this.state.isActive()) {
             return;
@@ -382,14 +410,14 @@ public class NodeImpl implements Node {
                 request.setTerm(this.currTerm);
                 request.setLastLogTerm(lastLogId.getTerm());
                 request.setLastLogIndex(lastLogId.getIndex());
-                
+
                 RequestVoteResponseCallback callback = new RequestVoteResponseCallback(this.currTerm, peerId, request);
                 this.rpcClient.requestVote(peerId, request, callback);
             }
             this.metaStorage.setTermAndVotedFor(this.currTerm, this.serverId);
             this.voteCtx.grant(this.serverId);
             if (this.voteCtx.isGranted()) {
-                //TODO becomeLeader();
+                becomeLeader();
             }
 
         } finally {

@@ -1,10 +1,12 @@
 package com.hongframe.raft.entity;
 
+import com.hongframe.raft.util.Copiable;
+
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
  * @version create time: 2020-04-16 18:04
  */
-public class NodeId implements java.io.Serializable {
+public class NodeId implements Copiable<NodeId>, java.io.Serializable {
 
     private final String groupId;
 
@@ -58,5 +60,10 @@ public class NodeId implements java.io.Serializable {
         } else {
             return this.peerId.equals(other.peerId);
         }
+    }
+
+    @Override
+    public NodeId copy() {
+        return new NodeId(this.groupId, this.peerId);
     }
 }
