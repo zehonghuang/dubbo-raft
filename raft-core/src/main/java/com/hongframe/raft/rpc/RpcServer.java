@@ -1,9 +1,7 @@
 package com.hongframe.raft.rpc;
 
 import com.hongframe.raft.option.RpcRemoteOptions;
-import com.hongframe.raft.rpc.core.RequestVoteRpc;
-import com.hongframe.raft.rpc.core.RpcService;
-import com.hongframe.raft.rpc.impl.RequestVoteRpcImpl;
+import com.hongframe.raft.rpc.core.RaftRpcService;
 import com.hongframe.raft.util.Endpoint;
 import com.hongframe.raft.util.NamedThreadFactory;
 import org.apache.dubbo.config.ApplicationConfig;
@@ -46,7 +44,7 @@ public class RpcServer {
             for (int i = 0; i < servicesInterface.size(); i++) {
                 ServiceConfig service = new ServiceConfig<>();
                 service.setInterface(servicesInterface.get(i));
-                RpcService rpcService = (RpcService) servicesImpl.get(i).newInstance();
+                RaftRpcService rpcService = (RaftRpcService) servicesImpl.get(i).newInstance();
                 service.setRef(rpcService);
                 service.setAsync(true);
                 services.add(service);
