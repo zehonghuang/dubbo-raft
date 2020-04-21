@@ -14,4 +14,6 @@ public interface LogManager {
 
     LogId getLastLogId(final boolean isFlush);
 
+    long getTerm(final long index);
+
 }

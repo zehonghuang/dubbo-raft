@@ -4,6 +4,7 @@ import com.hongframe.raft.*;
 import com.hongframe.raft.conf.ConfigurationEntry;
 import com.hongframe.raft.entity.*;
 import com.hongframe.raft.option.NodeOptions;
+import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.option.ReplicatorGroupOptions;
 import com.hongframe.raft.rpc.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
@@ -50,6 +51,7 @@ public class NodeImpl implements Node {
     private volatile long lastLeaderTimestamp;
 
     private NodeOptions nodeOptions;
+    private RaftOptions raftOptions;
 
     private RpcClient rpcClient;
 
@@ -70,30 +72,34 @@ public class NodeImpl implements Node {
 
     @Override
     public boolean init(NodeOptions opts) {
+        this.nodeOptions = opts;
+        this.raftOptions = this.nodeOptions.getRaftOptions();
+        this.rpcClient = DubboRaftRpcFactory.createRaftRpcClient();
 
         this.timerManger = new TimerManager(Utils.CPUS);
 
         this.logManager = new LogManagerImpl();
-        this.metaStorage = new RaftMetaStorageImpl("." + File.separator + "raft_meta");
+        this.metaStorage = new RaftMetaStorageImpl("." + File.separator + "raft_meta:" + this.serverId.toString());
         this.currTerm = this.metaStorage.getTerm();
         this.voteId = this.metaStorage.getVotedFor().copy();
 
         this.replicatorGroup = new ReplicatorGroupImpl();
         ReplicatorGroupOptions rgo = new ReplicatorGroupOptions();
         rgo.setElectionTimeoutMs(this.nodeOptions.getElectionTimeoutMs());
-        rgo.setHeartbeatTimeoutMs(this.nodeOptions.getElectionTimeoutMs());
+        rgo.setHeartbeatTimeoutMs(heartbeatTimeout(this.nodeOptions.getElectionTimeoutMs()));
         rgo.setLogManager(this.logManager);
         rgo.setNode(this);
+        rgo.setRpcClient(this.rpcClient);
         rgo.setTimerManager(this.timerManger);
         this.replicatorGroup.init(this.nodeId.copy(), rgo);
 
-        this.nodeOptions = opts;
+
         this.conf = new ConfigurationEntry();
         this.conf.setConf(this.nodeOptions.getConfig());
 
         NodeManager.getInstance().add(this);
 
-        this.rpcClient = DubboRaftRpcFactory.createRaftRpcClient();
+
 
         this.voteCtx.init(this.conf.getConf());
         this.prevoteCtx.init(this.conf.getConf());
@@ -118,6 +124,10 @@ public class NodeImpl implements Node {
 
     private int randomTimeout(final int timeoutMs) {
         return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs + (timeoutMs >> 1));
+    }
+
+    private int heartbeatTimeout(final int electionTimeout) {
+        return Math.max(electionTimeout / this.raftOptions.getElectionHeartbeatFactor(), 10);
     }
 
     public Message handlePreVoteRequest(final RequestVoteRequest request) {
@@ -185,7 +195,7 @@ public class NodeImpl implements Node {
             if (voteResponse.getGranted()) {
                 this.prevoteCtx.grant(peerId);
                 if (this.prevoteCtx.isGranted()) {
-                    LOG.info("peer {} granted pre vote", this.serverId);
+                    LOG.info("peer {} granted pre vote >>> electSelf()", this.serverId);
                     electSelf();
                 }
             }
@@ -201,7 +211,7 @@ public class NodeImpl implements Node {
                 return null;
             }
             final PeerId candidateId = new PeerId();
-            if (candidateId.parse(request.getServerId())) {
+            if (!candidateId.parse(request.getServerId())) {
                 return null;
             }
 
@@ -227,13 +237,13 @@ public class NodeImpl implements Node {
                     this.voteId = candidateId.copy();
                     this.metaStorage.setTermAndVotedFor(this.currTerm, this.voteId);
                 }
-
             } while (false);
 
             RequestVoteResponse response = new RequestVoteResponse();
             response.setGranted(request.getTerm() == this.currTerm && candidateId.equals(this.voteId));
             response.setPreVote(false);
             response.setTerm(this.currTerm);
+            LOG.info(response.toString());
             return response;
 
         } finally {
@@ -251,6 +261,7 @@ public class NodeImpl implements Node {
             if(this.currTerm != term) {
                 return;
             }
+            LOG.info(response.toString());
             if(response.getTerm() > this.currTerm) {
                 stepDown(response.getTerm(), new Status());
             }
@@ -265,10 +276,45 @@ public class NodeImpl implements Node {
         }
     }
 
+    public AppendEntriesResponse handleAppendEntriesRequest(final AppendEntriesRequest request) {
+        this.writeLock.lock();
+        try {
+            if(!this.state.isActive()) {
+                return null;
+            }
+            PeerId peerId = new PeerId();
+            if(!peerId.parse(request.getServerId())) {
+                return null;
+            }
+            if(request.getTerm() < this.currTerm) {
+                AppendEntriesResponse response = new AppendEntriesResponse();
+                response.setSuccess(false);
+                response.setTerm(this.currTerm);
+                return response;
+            }
+            if(this.leaderId == null || this.leaderId.isEmpty()) {
+                this.leaderId = peerId;
+            }
+
+            updateLastLeaderTimestamp(Utils.monotonicMs());
+        } finally {
+            this.writeLock.unlock();
+        }
+        return null;
+    }
+
+    private void updateLastLeaderTimestamp(final long lastLeaderTimestamp) {
+        this.lastLeaderTimestamp = lastLeaderTimestamp;
+    }
+
     private void handleElectionTimeout() {
         LOG.info("peer {} election time out, begin pre Vote", this.serverId);
         this.writeLock.lock();
         try {
+            if (isCurrentLeaderValid()) {
+                return;
+            }
+
             preVote();
         } finally {
             this.writeLock.unlock();
@@ -399,13 +445,15 @@ public class NodeImpl implements Node {
 
     private void electSelf() {
         this.writeLock.lock();
+        LOG.info("into electSelf() {}", this.state);
         long oldTerm;
         try {
-            if (this.conf.contains(this.serverId)) {
+            if (!this.conf.contains(this.serverId)) {
                 //该节点被移除
                 return;
             }
             if (this.state == State.STATE_FOLLOWER) {
+                LOG.info("stop electionTimer");
                 this.electionTimer.stop();
             }
             this.leaderId = PeerId.emptyPeer();
@@ -439,6 +487,7 @@ public class NodeImpl implements Node {
                 request.setLastLogIndex(lastLogId.getIndex());
 
                 RequestVoteResponseCallback callback = new RequestVoteResponseCallback(this.currTerm, peerId, request);
+                LOG.info(request.toString());
                 this.rpcClient.requestVote(peerId, request, callback);
             }
             this.metaStorage.setTermAndVotedFor(this.currTerm, this.serverId);

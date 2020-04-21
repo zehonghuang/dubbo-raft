@@ -1,5 +1,6 @@
 package com.hongframe.raft.rpc.impl;
 
+import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.rpc.RpcRequests.*;
 import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 
@@ -11,7 +12,8 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
 
     @Override
     public Response<AppendEntriesResponse> appendEntries(AppendEntriesRequest request) {
-        return null;
+        Message message = getNode(request).handleAppendEntriesRequest(request);
+        return checkResponse(message);
     }
 
 }

@@ -10,6 +10,8 @@ public class NodeOptions {
 
     private int electionTimeoutMs = 1000;
 
+    private RaftOptions raftOptions = new RaftOptions();
+
     private Configuration config;
 
     public int getElectionTimeoutMs() {
@@ -26,5 +28,13 @@ public class NodeOptions {
 
     public void setConfig(Configuration config) {
         this.config = config;
+    }
+
+    public RaftOptions getRaftOptions() {
+        return raftOptions;
+    }
+
+    public void setRaftOptions(RaftOptions raftOptions) {
+        this.raftOptions = raftOptions;
     }
 }

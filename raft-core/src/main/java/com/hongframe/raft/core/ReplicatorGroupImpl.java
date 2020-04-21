@@ -31,6 +31,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         this.replicatorOptions.setGroupId(this.nodeId.getGroupId());
         this.replicatorOptions.setLogManager(this.options.getLogManager());
         this.replicatorOptions.setRpcClient(this.options.getRpcClient());
+        this.replicatorOptions.setTimerManager(this.options.getTimerManager());
         this.replicatorOptions.setTerm(0);
         this.replicatorOptions.setNode(this.options.getNode());
         this.replicatorOptions.setElectionTimeoutMs(this.options.getElectionTimeoutMs());

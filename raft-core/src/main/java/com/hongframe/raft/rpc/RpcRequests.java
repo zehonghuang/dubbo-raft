@@ -334,7 +334,7 @@ public class RpcRequests {
     }
 
     public static final class AppendEntriesResponse implements Message {
-        private Long term;
+        private long term;
         private Boolean success;
         private Long lastLogLast;
 
@@ -347,11 +347,11 @@ public class RpcRequests {
                     '}';
         }
 
-        public Long getTerm() {
+        public long getTerm() {
             return term;
         }
 
-        public void setTerm(Long term) {
+        public void setTerm(long term) {
             this.term = term;
         }
 
@@ -383,7 +383,7 @@ public class RpcRequests {
     }
 
     public static final class RequestVoteResponse implements Message {
-        private Long term;
+        private long term;
         private Boolean granted;
         private Boolean preVote;
 
@@ -395,11 +395,11 @@ public class RpcRequests {
             this.granted = granted;
         }
 
-        public Long getTerm() {
+        public long getTerm() {
             return term;
         }
 
-        public void setTerm(Long term) {
+        public void setTerm(long term) {
             this.term = term;
         }
 

@@ -22,4 +22,9 @@ public class LogManagerImpl implements LogManager {
     public LogId getLastLogId(boolean isFlush) {
         return new LogId();
     }
+
+    @Override
+    public long getTerm(long index) {
+        return 0;
+    }
 }
