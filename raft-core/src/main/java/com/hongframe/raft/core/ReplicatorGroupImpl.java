@@ -4,6 +4,7 @@ import com.hongframe.raft.ReplicatorGroup;
 import com.hongframe.raft.entity.NodeId;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.ReplicatorGroupOptions;
+import com.hongframe.raft.option.ReplicatorOptions;
 import com.hongframe.raft.util.ObjectLock;
 
 import java.util.Map;
@@ -16,15 +17,37 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
     private final Map<PeerId, ReplicatorType> failureReplicators = new ConcurrentHashMap<>();
 
     private int electionTimeoutMs = -1;
+    private NodeId nodeId;
+    private ReplicatorGroupOptions options;
+    private ReplicatorOptions replicatorOptions;
 
     @Override
     public boolean init(NodeId nodeId, ReplicatorGroupOptions options) {
-        return false;
+        this.nodeId = nodeId;
+        this.options = options;
+
+        this.replicatorOptions = new ReplicatorOptions();
+        this.replicatorOptions.setServerId(this.nodeId.getPeerId());
+        this.replicatorOptions.setGroupId(this.nodeId.getGroupId());
+        this.replicatorOptions.setLogManager(this.options.getLogManager());
+        this.replicatorOptions.setRpcClient(this.options.getRpcClient());
+        this.replicatorOptions.setTerm(0);
+        this.replicatorOptions.setNode(this.options.getNode());
+        this.replicatorOptions.setElectionTimeoutMs(this.options.getElectionTimeoutMs());
+        this.replicatorOptions.setDynamicHeartBeatTimeoutMs(this.options.getHeartbeatTimeoutMs());
+        return true;
     }
 
     @Override
     public boolean addReplicator(PeerId peer) {
-        return replicatorMap.put(peer, Replicator.start()) == null;
+        ReplicatorOptions ro = this.replicatorOptions.copy();
+        ro.setPeerId(peer);
+        return replicatorMap.put(peer, Replicator.start(ro)) == null;
+    }
+
+    @Override
+    public boolean resetTerm(long newTerm) {
+        return false;
     }
 
     @Override

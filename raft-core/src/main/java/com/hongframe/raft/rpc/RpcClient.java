@@ -80,6 +80,10 @@ public class RpcClient {
         return invokeAsync(findReferenceConfig(peerId, request), request, callback);
     }
 
+    public CompletableFuture<?> appendEntries(PeerId peerId, AppendEntriesRequest request, Callback callback) {
+        return invokeAsync(findReferenceConfig(peerId, request), request, callback);
+    }
+
     private static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Callback callBack) {
         GenericService genericService = (GenericService) reference.get();
 

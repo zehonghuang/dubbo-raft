@@ -4,6 +4,7 @@ import com.hongframe.raft.*;
 import com.hongframe.raft.conf.ConfigurationEntry;
 import com.hongframe.raft.entity.*;
 import com.hongframe.raft.option.NodeOptions;
+import com.hongframe.raft.option.ReplicatorGroupOptions;
 import com.hongframe.raft.rpc.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
@@ -54,6 +55,7 @@ public class NodeImpl implements Node {
 
     private ReentrantTimer voteTimer;
     private ReentrantTimer electionTimer;
+    private Scheduler timerManger;
 
     private LogManager logManager;
     private RaftMetaStorage metaStorage;
@@ -69,14 +71,21 @@ public class NodeImpl implements Node {
     @Override
     public boolean init(NodeOptions opts) {
 
+        this.timerManger = new TimerManager(Utils.CPUS);
+
         this.logManager = new LogManagerImpl();
         this.metaStorage = new RaftMetaStorageImpl("." + File.separator + "raft_meta");
         this.currTerm = this.metaStorage.getTerm();
         this.voteId = this.metaStorage.getVotedFor().copy();
 
         this.replicatorGroup = new ReplicatorGroupImpl();
-        //TODO ReplicatorGroupOptions
-        this.replicatorGroup.init(this.nodeId.copy(), null);
+        ReplicatorGroupOptions rgo = new ReplicatorGroupOptions();
+        rgo.setElectionTimeoutMs(this.nodeOptions.getElectionTimeoutMs());
+        rgo.setHeartbeatTimeoutMs(this.nodeOptions.getElectionTimeoutMs());
+        rgo.setLogManager(this.logManager);
+        rgo.setNode(this);
+        rgo.setTimerManager(this.timerManger);
+        this.replicatorGroup.init(this.nodeId.copy(), rgo);
 
         this.nodeOptions = opts;
         this.conf = new ConfigurationEntry();
@@ -89,7 +98,7 @@ public class NodeImpl implements Node {
         this.voteCtx.init(this.conf.getConf());
         this.prevoteCtx.init(this.conf.getConf());
 
-        this.electionTimer = new ReentrantTimer("Dubbo-radt-ElectionTimer", this.nodeOptions.getElectionTimeoutMs()) {
+        this.electionTimer = new ReentrantTimer("Dubbo-raft-ElectionTimer", this.nodeOptions.getElectionTimeoutMs()) {
             @Override
             protected void onTrigger() {
                 handleElectionTimeout();
@@ -108,11 +117,11 @@ public class NodeImpl implements Node {
     }
 
     private int randomTimeout(final int timeoutMs) {
-        return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs + timeoutMs << 1);
+        return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs + (timeoutMs >> 1));
     }
 
     public Message handlePreVoteRequest(final RequestVoteRequest request) {
-
+        LOG.info("from {} pre vote request, term: {}", request.getServerId(), request.getTerm());
         try {
             this.writeLock.lock();
             if (!this.state.isActive()) {
@@ -149,7 +158,8 @@ public class NodeImpl implements Node {
             response.setGranted(granted);
             response.setTerm(this.currTerm);
             response.setPreVote(true);
-            return request;
+            LOG.info("are you grant for {} ? {}", request.getServerId(), granted);
+            return response;
         } finally {
             this.writeLock.unlock();
         }
@@ -157,6 +167,7 @@ public class NodeImpl implements Node {
     }
 
     public void handlePreVoteResponse(PeerId peerId, long term, RequestVoteResponse voteResponse) {
+        LOG.info("peer {} grant to you? {}", peerId, voteResponse.getGranted());
         this.writeLock.lock();
         try {
             if (this.state != State.STATE_FOLLOWER) {
@@ -174,6 +185,7 @@ public class NodeImpl implements Node {
             if (voteResponse.getGranted()) {
                 this.prevoteCtx.grant(peerId);
                 if (this.prevoteCtx.isGranted()) {
+                    LOG.info("peer {} granted pre vote", this.serverId);
                     electSelf();
                 }
             }
@@ -254,6 +266,7 @@ public class NodeImpl implements Node {
     }
 
     private void handleElectionTimeout() {
+        LOG.info("peer {} election time out, begin pre Vote", this.serverId);
         this.writeLock.lock();
         try {
             preVote();
@@ -340,10 +353,14 @@ public class NodeImpl implements Node {
                 voteRequest.setTerm(this.currTerm + 1);
                 voteRequest.setLastLogIndex(lastLogId.getIndex());
                 voteRequest.setLastLogTerm(lastLogId.getTerm());
-
+                LOG.info("request pre vote to {}", peerId);
                 this.rpcClient.requestVote(peerId, voteRequest, new PreVoteResponseCallback(this.currTerm, peerId, voteRequest));
             }
 
+            this.prevoteCtx.grant(this.serverId);
+            if (this.prevoteCtx.isGranted()) {
+                electSelf();
+            }
         } finally {
             this.writeLock.unlock();
         }
@@ -351,8 +368,18 @@ public class NodeImpl implements Node {
     }
 
     private void becomeLeader() {
-        //TODO becomeLeader
         this.state = State.STATE_LEADER;
+        this.leaderId = this.serverId.copy();
+        //TODO becomeLeader resetTerm
+        LOG.info("peer {} become Leader", this.leaderId);
+
+        for(PeerId peerId : this.conf.getConf().getPeers()) {
+            if(peerId.equals(this.serverId)) {
+                continue;
+            }
+            this.replicatorGroup.addReplicator(peerId);
+        }
+
     }
 
     private void stepDown(final long term, final Status status) {

@@ -1,6 +1,7 @@
 package com.hongframe.raft.option;
 
 import com.hongframe.raft.core.NodeImpl;
+import com.hongframe.raft.core.Scheduler;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
 
@@ -11,6 +12,15 @@ public class ReplicatorGroupOptions {
     private LogManager logManager;
     private NodeImpl node;
     private RpcClient rpcClient;
+    private Scheduler timerManager;
+
+    public Scheduler getTimerManager() {
+        return timerManager;
+    }
+
+    public void setTimerManager(Scheduler timerManager) {
+        this.timerManager = timerManager;
+    }
 
     public int getHeartbeatTimeoutMs() {
         return heartbeatTimeoutMs;

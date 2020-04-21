@@ -12,6 +12,8 @@ public interface ReplicatorGroup {
 
     boolean addReplicator(final PeerId peer);
 
+    boolean resetTerm(final long newTerm);
+
     ObjectLock<Replicator> getReplicator(final PeerId peerId);
 
     boolean stopReplicator(final PeerId peer);
