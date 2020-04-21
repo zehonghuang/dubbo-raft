@@ -48,7 +48,11 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
     @Override
     public boolean resetTerm(long newTerm) {
-        return false;
+        if(newTerm <= this.replicatorOptions.getTerm()) {
+            return false;
+        }
+        this.replicatorOptions.setTerm(newTerm);
+        return true;
     }
 
     @Override

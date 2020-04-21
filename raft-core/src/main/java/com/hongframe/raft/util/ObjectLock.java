@@ -3,7 +3,7 @@ package com.hongframe.raft.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class ObjectLock<T> {
@@ -11,22 +11,31 @@ public class ObjectLock<T> {
     private static final Logger LOG = LoggerFactory.getLogger(ObjectLock.class);
 
     private final T data;
-    private final CountDownLatch nonReentrant = new CountDownLatch(0) {
+    private final Semaphore nonReentrant = new Semaphore(1) {
         private Thread owner;
 
         @Override
-        public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
-            boolean islock;
-            if (islock = super.await(timeout, unit)) {
-                this.owner = Thread.currentThread();
-            }
-            return islock;
+        public boolean tryAcquire() {
+            return super.tryAcquire();
         }
 
         @Override
-        public void countDown() {
-            if (this.owner == Thread.currentThread()) {
-                super.countDown();
+        public boolean tryAcquire(long timeout, TimeUnit unit) throws InterruptedException {
+            if(this.owner != null) {
+                return false;
+            }
+            boolean b = super.tryAcquire(timeout, unit);
+            if(b) {
+                this.owner = Thread.currentThread();
+            }
+            return b;
+        }
+
+        @Override
+        public void release() {
+            if(this.owner == Thread.currentThread()) {
+                super.release();
+                this.owner = null;
             }
         }
     };
@@ -47,7 +56,7 @@ public class ObjectLock<T> {
             return null;
         }
         try {
-            while (!nonReentrant.await(10, TimeUnit.MILLISECONDS)) {
+            while (!nonReentrant.tryAcquire(10, TimeUnit.MILLISECONDS)) {
                 if (destroyed) {
                     return null;
                 }
@@ -60,7 +69,7 @@ public class ObjectLock<T> {
     }
 
     public void unlock() {
-        this.nonReentrant.countDown();
+        this.nonReentrant.release();
     }
 
 

@@ -7,14 +7,18 @@ import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcRequests.*;
 import com.hongframe.raft.util.ObjectLock;
 import com.hongframe.raft.util.Utils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class Replicator {
 
+    private static final Logger LOG = LoggerFactory.getLogger(Replicator.class);
+
     private RpcClient rpcClient;
-    private volatile long nextIndex;
+    private volatile long nextIndex = 1;
     private ObjectLock<Replicator> self;
     private final ReplicatorOptions options;
     private Scheduler timerManger;
@@ -36,6 +40,7 @@ public class Replicator {
         if (!replicator.rpcClient.connect(replicator.options.getPeerId())) {
             return null;
         }
+        LOG.info("start Replicator :{}", replicator.options.getPeerId());
         ObjectLock<Replicator> lock = new ObjectLock<>(replicator);
         replicator.self = lock;
         lock.lock();
@@ -47,7 +52,7 @@ public class Replicator {
 
     private void startHeartbeatTimer(long startMs) {
         final long dueTime = startMs + this.options.getDynamicHeartBeatTimeoutMs();
-        this.heartbeatTimer = this.timerManger.schedule(() -> onTimeout(this.self), dueTime, TimeUnit.MILLISECONDS);
+        this.heartbeatTimer = this.timerManger.schedule(() -> onTimeout(this.self), dueTime - Utils.nowMs(), TimeUnit.MILLISECONDS);
     }
 
     private void onTimeout(ObjectLock<Replicator> lock) {
@@ -93,7 +98,7 @@ public class Replicator {
     }
 
     private void onHeartbeatReturned(AppendEntriesResponse response, long monotonicSendTimeMs) {
-
+        onTimeout(this.self);
     }
 
 }

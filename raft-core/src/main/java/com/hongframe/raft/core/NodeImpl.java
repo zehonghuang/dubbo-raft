@@ -123,7 +123,7 @@ public class NodeImpl implements Node {
     }
 
     private int randomTimeout(final int timeoutMs) {
-        return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs + (timeoutMs >> 1));
+        return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs + (timeoutMs << 2));
     }
 
     private int heartbeatTimeout(final int electionTimeout) {
@@ -132,8 +132,10 @@ public class NodeImpl implements Node {
 
     public Message handlePreVoteRequest(final RequestVoteRequest request) {
         LOG.info("from {} pre vote request, term: {}", request.getServerId(), request.getTerm());
+        boolean doUnlock = true;
+        this.writeLock.lock();
         try {
-            this.writeLock.lock();
+
             if (!this.state.isActive()) {
                 return null;
             }
@@ -153,10 +155,12 @@ public class NodeImpl implements Node {
                 } else if (request.getTerm() == this.currTerm + 1) {
                     //TODO 检查复制器
                 }
+                doUnlock = false;
                 this.writeLock.unlock();
 
                 final LogId lastLogId = this.logManager.getLastLogId(true);
 
+                doUnlock = true;
                 this.writeLock.lock();
 
                 final LogId requestLastLogId = new LogId(request.getTerm(), request.getLastLogIndex());
@@ -171,21 +175,26 @@ public class NodeImpl implements Node {
             LOG.info("are you grant for {} ? {}", request.getServerId(), granted);
             return response;
         } finally {
-            this.writeLock.unlock();
+            if(doUnlock) {
+                this.writeLock.unlock();
+            }
         }
 
     }
 
     public void handlePreVoteResponse(PeerId peerId, long term, RequestVoteResponse voteResponse) {
         LOG.info("peer {} grant to you? {}", peerId, voteResponse.getGranted());
+        boolean doUnlock = true;
         this.writeLock.lock();
         try {
             if (this.state != State.STATE_FOLLOWER) {
                 //不再是follower，不必要处理预选投票
+                LOG.warn("state chanege to {}", this.state);
                 return;
             }
             if (this.currTerm != term) {
                 //currTerm节点任期变了，无效
+                LOG.warn("cuurTerm: {}", this.currTerm);
                 return;
             }
             if (voteResponse.getTerm() > this.currTerm) {
@@ -196,15 +205,19 @@ public class NodeImpl implements Node {
                 this.prevoteCtx.grant(peerId);
                 if (this.prevoteCtx.isGranted()) {
                     LOG.info("peer {} granted pre vote >>> electSelf()", this.serverId);
+                    doUnlock = false;
                     electSelf();
                 }
             }
         } finally {
-            this.writeLock.unlock();
+            if(doUnlock) {
+                this.writeLock.unlock();
+            }
         }
     }
 
     public Message handleRequestVoteRequest(final RequestVoteRequest request) {
+        boolean doUnlock = true;
         this.writeLock.lock();
         try {
             if (!this.state.isActive()) {
@@ -223,17 +236,19 @@ public class NodeImpl implements Node {
                 } else {
                     break;
                 }
+                doUnlock = false;
                 this.writeLock.unlock();
 
                 final LogId lastLogId = this.logManager.getLastLogId(true);
 
+                doUnlock = true;
                 this.writeLock.lock();
                 if(this.currTerm != request.getTerm()) {
                     break;
                 }
                 boolean isOk = new LogId(request.getTerm(), request.getLastLogIndex()).compareTo(lastLogId) >= 0;
                 if (isOk && (this.voteId == null || this.voteId.isEmpty())) {
-                    stepDown(this.currTerm, new Status());
+                    stepDown(request.getTerm(), new Status());
                     this.voteId = candidateId.copy();
                     this.metaStorage.setTermAndVotedFor(this.currTerm, this.voteId);
                 }
@@ -247,7 +262,9 @@ public class NodeImpl implements Node {
             return response;
 
         } finally {
-            this.writeLock.unlock();
+            if(doUnlock) {
+                this.writeLock.unlock();
+            }
         }
     }
 
@@ -277,6 +294,7 @@ public class NodeImpl implements Node {
     }
 
     public AppendEntriesResponse handleAppendEntriesRequest(final AppendEntriesRequest request) {
+
         this.writeLock.lock();
         try {
             if(!this.state.isActive()) {
@@ -308,16 +326,22 @@ public class NodeImpl implements Node {
     }
 
     private void handleElectionTimeout() {
-        LOG.info("peer {} election time out, begin pre Vote", this.serverId);
+        LOG.info("peer {} election time out, begin pre Vote, my leader is {}", this.serverId, this.leaderId);
+        boolean doUnlock = true;
         this.writeLock.lock();
         try {
+            if (this.state != State.STATE_FOLLOWER) {
+                return;
+            }
             if (isCurrentLeaderValid()) {
                 return;
             }
-
+            doUnlock = false;
             preVote();
         } finally {
-            this.writeLock.unlock();
+            if (doUnlock) {
+                this.writeLock.unlock();
+            }
         }
     }
 
@@ -369,7 +393,6 @@ public class NodeImpl implements Node {
 
     private void preVote() {
         long oldTerm;
-        this.writeLock.lock();
         try {
             oldTerm = this.currTerm;
         } finally {
@@ -378,6 +401,7 @@ public class NodeImpl implements Node {
 
         final LogId lastLogId = this.logManager.getLastLogId(true);//刷盘需要一段时间，所以释放锁，提高并发性
 
+        Boolean doUnlock = true;
         this.writeLock.lock();
         try {
             if (this.currTerm != oldTerm) {
@@ -405,10 +429,13 @@ public class NodeImpl implements Node {
 
             this.prevoteCtx.grant(this.serverId);
             if (this.prevoteCtx.isGranted()) {
+                doUnlock = false;
                 electSelf();
             }
         } finally {
-            this.writeLock.unlock();
+            if(doUnlock) {
+                this.writeLock.unlock();
+            }
         }
 
     }
@@ -418,7 +445,7 @@ public class NodeImpl implements Node {
         this.leaderId = this.serverId.copy();
         //TODO becomeLeader resetTerm
         LOG.info("peer {} become Leader", this.leaderId);
-
+        this.replicatorGroup.resetTerm(this.currTerm);
         for(PeerId peerId : this.conf.getConf().getPeers()) {
             if(peerId.equals(this.serverId)) {
                 continue;
@@ -444,7 +471,6 @@ public class NodeImpl implements Node {
     }
 
     private void electSelf() {
-        this.writeLock.lock();
         LOG.info("into electSelf() {}", this.state);
         long oldTerm;
         try {

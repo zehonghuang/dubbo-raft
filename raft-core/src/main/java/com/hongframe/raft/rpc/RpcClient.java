@@ -3,6 +3,7 @@ package com.hongframe.raft.rpc;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcRemoteOptions;
+import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.dubbo.common.URL;
@@ -86,7 +87,6 @@ public class RpcClient {
 
     private static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Callback callBack) {
         GenericService genericService = (GenericService) reference.get();
-
         genericService.$invoke(request.method(), new String[]{request.getName()},
                 new Object[]{request});
         CompletableFuture<?> future  = RpcContext.getContext().getCompletableFuture();

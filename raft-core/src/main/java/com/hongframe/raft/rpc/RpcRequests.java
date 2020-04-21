@@ -1,6 +1,7 @@
 package com.hongframe.raft.rpc;
 
 import com.hongframe.raft.entity.Message;
+import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 import com.hongframe.raft.rpc.core.MembershipChangeRpc;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 
@@ -47,7 +48,7 @@ public class RpcRequests {
 
         @Override
         public String seviceName() {
-            return MembershipChangeRpc.class.getName();
+            return MembershipChangeRpc.class.getSimpleName();
         }
 
         @Override
@@ -126,7 +127,7 @@ public class RpcRequests {
 
         @Override
         public String seviceName() {
-            return MembershipChangeRpc.class.getName();
+            return MembershipChangeRpc.class.getSimpleName();
         }
 
         @Override
@@ -205,7 +206,7 @@ public class RpcRequests {
 
         @Override
         public String seviceName() {
-            return MembershipChangeRpc.class.getName();
+            return MembershipChangeRpc.class.getSimpleName();
         }
 
         @Override
@@ -330,6 +331,21 @@ public class RpcRequests {
 
         public void setCommittedIndex(Long committedIndex) {
             this.committedIndex = committedIndex;
+        }
+
+        @Override
+        public String seviceName() {
+            return AppendEntriesRpc.class.getSimpleName();
+        }
+
+        @Override
+        public String method() {
+            return "appendEntries";
+        }
+
+        @Override
+        public String getName() {
+            return getClass().getName();
         }
     }
 
