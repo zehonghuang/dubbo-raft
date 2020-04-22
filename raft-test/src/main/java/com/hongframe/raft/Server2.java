@@ -12,7 +12,7 @@ public class Server2 {
     private static final Logger LOG = LoggerFactory.getLogger(Server2.class);
 
     public static void main(String[] args) {
-        RaftServerStartup.startup(8889, "localhost:8888,localhost:8889");
-        LOG.info("server1 started...");
+        RaftServerStartup.startup(8889, RaftServerStartup.NODES);
+        LOG.info("server2 started...");
     }
 }

@@ -19,6 +19,8 @@ public class RaftServerStartup {
 
     private static final Logger LOG = LoggerFactory.getLogger(RaftServerStartup.class);
 
+    public static final String NODES = "localhost:8888,localhost:8889,localhost:8890,localhost:8891,localhost:8892";
+
 
     public static Node startup(int port, String servers) {
 

@@ -86,24 +86,31 @@ public class RpcClient {
     }
 
     private static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Callback callBack) {
-        GenericService genericService = (GenericService) reference.get();
-        genericService.$invoke(request.method(), new String[]{request.getName()},
-                new Object[]{request});
-        CompletableFuture<?> future  = RpcContext.getContext().getCompletableFuture();
+        GenericService genericService = null;
+        CompletableFuture<?> future = null;
+        try {
+            genericService = (GenericService) reference.get();
+            genericService.$invoke(request.method(), new String[]{request.getName()},
+                    new Object[]{request});
+            future = RpcContext.getContext().getCompletableFuture();
 
-        future.whenComplete((response, e) -> {
-            Map<String, Object> map = (Map) response;
-            if (e == null) {
-                try {
-                    callBack.invoke(mapToResponse(map));
-                } catch (Exception e1) {
-                    e1.printStackTrace();
+            future.whenComplete((response, e) -> {
+                Map<String, Object> map = (Map) response;
+                if (e == null) {
+                    try {
+                        callBack.invoke(mapToResponse(map));
+                    } catch (Exception e1) {
+                        callBack.invoke(new Response(new ErrorResponse(10001, e1.toString())));
+                        LOG.error("invoke {} -> {} fail", request.getPeerId(), request.method(), e1);
+                    }
+                } else {
+                    callBack.invoke(new Response(new ErrorResponse(10001, e.toString())));
+                    LOG.error("channel {} -> {} fail", request.getPeerId(), request.method(), e);
                 }
-            } else {
-                callBack.invoke(new Response(new ErrorResponse(10001, e.toString())));
-            }
-        });
-
+            });
+        } catch (Exception e) {
+            callBack.invoke(new Response(new ErrorResponse(10001, e.toString())));
+        }
         return future;
     }
 

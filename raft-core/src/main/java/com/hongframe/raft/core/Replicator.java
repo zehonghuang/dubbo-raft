@@ -86,9 +86,7 @@ public class Replicator {
                 this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {
-                        if (status.isOk()) {
-                            onHeartbeatReturned((AppendEntriesResponse) getResponse(), monotonicSendTimeMs);
-                        }
+                        onHeartbeatReturned(status, (AppendEntriesResponse) getResponse(), monotonicSendTimeMs);
                     }
                 });
             }
@@ -97,7 +95,11 @@ public class Replicator {
         }
     }
 
-    private void onHeartbeatReturned(AppendEntriesResponse response, long monotonicSendTimeMs) {
+    private void onHeartbeatReturned(Status status, AppendEntriesResponse response, long monotonicSendTimeMs) {
+        if(!status.isOk()) {
+            //TODO block
+            LOG.warn("onHeartbeatReturned {}", status.getErrorMsg());
+        }
         onTimeout(this.self);
     }
 

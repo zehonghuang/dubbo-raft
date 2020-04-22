@@ -146,7 +146,7 @@ public class NodeImpl implements Node {
             boolean granted = false;
 
             do {
-                if (this.leaderId != null && this.leaderId.isEmpty() && isCurrentLeaderValid()) {
+                if (this.leaderId != null && !this.leaderId.isEmpty() && isCurrentLeaderValid()) {
                     break;
                 }
                 if (request.getTerm() < this.currTerm) {
@@ -294,7 +294,6 @@ public class NodeImpl implements Node {
     }
 
     public AppendEntriesResponse handleAppendEntriesRequest(final AppendEntriesRequest request) {
-
         this.writeLock.lock();
         try {
             if(!this.state.isActive()) {
@@ -365,6 +364,7 @@ public class NodeImpl implements Node {
         public void run(Status status) {
             if (!status.isOk()) {
                 LOG.warn(status.getErrorMsg());
+                return;
             }
             NodeImpl.this.handleRequestVoteResponse(this.term, this.peerId, (RequestVoteResponse) getResponse());
         }
@@ -386,6 +386,7 @@ public class NodeImpl implements Node {
         public void run(Status status) {
             if (!status.isOk()) {
                 LOG.warn(status.getErrorMsg());
+                return;
             }
             NodeImpl.this.handlePreVoteResponse(peerId, term, (RequestVoteResponse) getResponse());
         }
