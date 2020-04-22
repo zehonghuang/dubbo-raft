@@ -2,53 +2,30 @@ package com.hongframe.raft.rpc;
 
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcRemoteOptions;
+import com.hongframe.raft.rpc.ClientRequests.*;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.ReferenceConfig;
 import org.apache.dubbo.config.RegistryConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
-import static com.hongframe.raft.rpc.RpcRequests.*;
+public class ClientService extends AbstractRpcClient {
 
-/**
- * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
- * @version create time: 2020-04-15 19:31
- */
-public class RpcClient extends AbstractRpcClient {
-
-    private static final Logger LOG = LoggerFactory.getLogger(RpcClient.class);
-
-    public RpcClient(RpcRemoteOptions options) {
+    public ClientService(RpcRemoteOptions options) {
         super(options);
     }
 
-    public void init(RpcRemoteOptions options) {
+    public GetLeaderResponse getLeader(PeerId peerId, GetLeaderRequest request) {
+        return (GetLeaderResponse) invoke(findReferenceConfig(peerId, request), request);
     }
 
-    public boolean connect(PeerId peerId) {
-        if (!getReferences().containsKey(peerId)) {
-            getReferences().put(peerId, addReferenceConfig(peerId));
-        }
-        return true;
-    }
-
-    public CompletableFuture<?> requestVote(PeerId peerId, RequestVoteRequest request, Callback callback) {
-        return invokeAsync(findReferenceConfig(peerId, request), request, callback);
-    }
-
-    public CompletableFuture<?> appendEntries(PeerId peerId, AppendEntriesRequest request, Callback callback) {
-        return invokeAsync(findReferenceConfig(peerId, request), request, callback);
-    }
-
+    @Override
     protected Map<String, ReferenceConfig> addReferenceConfig(PeerId peerId) {
         Map<String, ReferenceConfig> referenceConfigMap = new HashMap<>();
-        List<Class> classes = this.getRpcRemoteOptions().getServicesInterface();
+        List<Class> classes = this.getRpcRemoteOptions().getClientServicesInterface();
         for (Class c : classes) {
             URL url = new URL("dubbo", peerId.getEndpoint().getIp(), peerId.getEndpoint().getPort(), c.getName());
             ReferenceConfig<?> reference = new ReferenceConfig<>();
@@ -64,5 +41,4 @@ public class RpcClient extends AbstractRpcClient {
 
         return referenceConfigMap;
     }
-
 }
