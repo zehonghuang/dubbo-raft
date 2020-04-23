@@ -5,17 +5,12 @@ import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcRemoteOptions;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.dubbo.common.URL;
-import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.ReferenceConfig;
-import org.apache.dubbo.config.RegistryConfig;
 import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.service.GenericService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -50,11 +45,11 @@ public abstract class AbstractRpcClient {
         return null;
     }
 
-    protected static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Callback callBack) {
+    protected static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Invokeable callBack) {
         return invokeAsync(reference, request, callBack, true);
     }
 
-    private static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Callback callBack, boolean isAsync) {
+    private static CompletableFuture<?> invokeAsync(ReferenceConfig reference, Message request, Invokeable callBack, boolean isAsync) {
         GenericService genericService;
         CompletableFuture<?> future = null;
         try {

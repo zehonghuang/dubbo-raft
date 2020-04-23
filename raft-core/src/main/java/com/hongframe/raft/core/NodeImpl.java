@@ -6,14 +6,20 @@ import com.hongframe.raft.entity.*;
 import com.hongframe.raft.option.NodeOptions;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.option.ReplicatorGroupOptions;
+import com.hongframe.raft.rpc.Callback;
 import com.hongframe.raft.rpc.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.RaftMetaStorage;
 import com.hongframe.raft.storage.impl.LogManagerImpl;
 import com.hongframe.raft.storage.impl.RaftMetaStorageImpl;
-import com.hongframe.raft.util.ReentrantTimer;
-import com.hongframe.raft.util.Utils;
+import com.hongframe.raft.util.*;
+import com.lmax.disruptor.BlockingWaitStrategy;
+import com.lmax.disruptor.EventFactory;
+import com.lmax.disruptor.EventHandler;
+import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.dsl.Disruptor;
+import com.lmax.disruptor.dsl.ProducerType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +64,8 @@ public class NodeImpl implements Node {
     private ReentrantTimer voteTimer;
     private ReentrantTimer electionTimer;
     private Scheduler timerManger;
+    private Disruptor<LogEntrAndCallback> applyDisruptor;
+    private RingBuffer<LogEntrAndCallback> applyQueue;
 
     private LogManager logManager;
     private RaftMetaStorage metaStorage;
@@ -68,6 +76,25 @@ public class NodeImpl implements Node {
         this.groupId = groupId;
         this.serverId = serverId;
         this.nodeId = new NodeId(this.groupId, this.serverId);
+    }
+
+    private static class LogEntrAndCallback {
+        Callback callback;
+        LogEntry entry;
+    }
+
+    private static class LogEntryCallbackFactory implements EventFactory<LogEntrAndCallback> {
+        @Override
+        public LogEntrAndCallback newInstance() {
+            return new LogEntrAndCallback();
+        }
+    }
+
+    private static class LogEntryCallbackEventHandler implements EventHandler<LogEntrAndCallback> {
+        @Override
+        public void onEvent(LogEntrAndCallback event, long sequence, boolean endOfBatch) throws Exception {
+            //TODO LogEntryCallbackEventHandler
+        }
     }
 
     @Override
@@ -115,6 +142,17 @@ public class NodeImpl implements Node {
                 return randomTimeout(timeoutMs);
             }
         };
+
+        this.applyDisruptor = DisruptorBuilder.<LogEntrAndCallback> newInstance() //
+                .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //
+                .setEventFactory(new LogEntryCallbackFactory()) //
+                .setThreadFactory(new NamedThreadFactory("Dubbo-Raft-NodeImpl-Disruptor-", true)) //
+                .setProducerType(ProducerType.MULTI) //
+                .setWaitStrategy(new BlockingWaitStrategy()) //
+                .build();
+        this.applyDisruptor.handleEventsWith(new LogEntryCallbackEventHandler());
+        this.applyDisruptor.setDefaultExceptionHandler(new LogExceptionHandler<Object>(getClass().getSimpleName()));
+        this.applyQueue = this.applyDisruptor.start();
 
         this.state = State.STATE_FOLLOWER;
 
@@ -539,6 +577,11 @@ public class NodeImpl implements Node {
             this.nodeId = new NodeId(this.groupId, this.serverId);
         }
         return this.nodeId;
+    }
+
+    @Override
+    public void apply(Task task) {
+        task.getCallback().run(new Status());
     }
 
     @Override

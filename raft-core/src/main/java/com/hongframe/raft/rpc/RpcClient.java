@@ -38,11 +38,11 @@ public class RpcClient extends AbstractRpcClient {
         return true;
     }
 
-    public CompletableFuture<?> requestVote(PeerId peerId, RequestVoteRequest request, Callback callback) {
+    public CompletableFuture<?> requestVote(PeerId peerId, RequestVoteRequest request, Invokeable callback) {
         return invokeAsync(findReferenceConfig(peerId, request), request, callback);
     }
 
-    public CompletableFuture<?> appendEntries(PeerId peerId, AppendEntriesRequest request, Callback callback) {
+    public CompletableFuture<?> appendEntries(PeerId peerId, AppendEntriesRequest request, Invokeable callback) {
         return invokeAsync(findReferenceConfig(peerId, request), request, callback);
     }
 

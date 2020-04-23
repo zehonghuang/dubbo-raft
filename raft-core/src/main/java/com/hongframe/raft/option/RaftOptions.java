@@ -16,6 +16,16 @@ public class RaftOptions {
 
     private int electionHeartbeatFactor = 10;
 
+    private int disruptorBufferSize = 16384;
+
+    public int getDisruptorBufferSize() {
+        return disruptorBufferSize;
+    }
+
+    public void setDisruptorBufferSize(int disruptorBufferSize) {
+        this.disruptorBufferSize = disruptorBufferSize;
+    }
+
     public int getMaxByteCountPerRpc() {
         return maxByteCountPerRpc;
     }
