@@ -93,6 +93,7 @@ public abstract class AbstractRpcClient {
             } else {
                 future = CompletableFuture.completedFuture(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())));
             }
+            LOG.error("", e);
         }
         return future;
     }

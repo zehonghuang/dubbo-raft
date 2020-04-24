@@ -3,6 +3,7 @@ package com.hongframe.raft.counter;
 import com.hongframe.raft.RouteTable;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.conf.Configuration;
+import com.hongframe.raft.counter.rpc.CounterService;
 import com.hongframe.raft.counter.rpc.IncrementAndGetRequest;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcRemoteOptions;
@@ -20,20 +21,24 @@ public class CounterClient {
         conf.parse(CounterRaftServerStartup.NODES);
 
         RouteTable.getInstance().updateConf(CounterRaftServerStartup.GROUP, conf);
-
-        ClientService clientService = new ClientService(new RpcRemoteOptions());
+        RpcRemoteOptions options = new RpcRemoteOptions();
+        options.registerUserService(CounterService.class, null);
+        ClientService clientService = new ClientService(options);
         RouteTable.getInstance().refreshLeader(clientService, CounterRaftServerStartup.GROUP);
 
         PeerId leader = RouteTable.getInstance().selectLeader(CounterRaftServerStartup.GROUP);
 
         IncrementAndGetRequest request = new IncrementAndGetRequest();
         request.setValue(11111);
-        clientService.invokeAsync(leader, request, new ResponseCallbackAdapter() {
-            @Override
-            public void run(Status status) {
-                System.out.println(getResponse());
-            }
-        });
+        System.out.println(leader);
+        if(clientService.connect(leader)) {
+            clientService.invokeAsync(leader, request, new ResponseCallbackAdapter() {
+                @Override
+                public void run(Status status) {
+                    System.out.println(getResponse());
+                }
+            });
+        }
     }
 
 }

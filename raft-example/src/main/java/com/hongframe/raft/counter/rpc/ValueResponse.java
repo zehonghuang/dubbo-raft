@@ -16,6 +16,14 @@ public class ValueResponse implements Message {
         this.success = success;
     }
 
+    @Override
+    public String toString() {
+        return "ValueResponse{" +
+                "value=" + value +
+                ", success=" + success +
+                '}';
+    }
+
     public ValueResponse() {
     }
 

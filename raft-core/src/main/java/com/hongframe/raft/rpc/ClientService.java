@@ -26,6 +26,7 @@ public class ClientService extends AbstractRpcClient {
     protected Map<String, ReferenceConfig> addReferenceConfig(PeerId peerId) {
         Map<String, ReferenceConfig> referenceConfigMap = new HashMap<>();
         List<Class> classes = this.getRpcRemoteOptions().getClientServicesInterface();
+        classes.addAll(this.getRpcRemoteOptions().getUserServicesInterface());
         for (Class c : classes) {
             URL url = new URL("dubbo", peerId.getEndpoint().getIp(), peerId.getEndpoint().getPort(), c.getName());
             ReferenceConfig<?> reference = new ReferenceConfig<>();
