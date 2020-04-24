@@ -36,22 +36,30 @@ public class RpcServer {
         this.rpcRemoteOptions = options;
     }
 
+    public void registerUserService(Class serviceInterface, Class serviceImpl) {
+        this.rpcRemoteOptions.registerUserService(serviceInterface, serviceImpl);
+    }
+
     public void init() {
         List<ServiceConfig> services = new ArrayList<>();
         try {
             List<Class> servicesInterface = this.rpcRemoteOptions.getServicesInterface();
             List<Class> servicesImpl = this.rpcRemoteOptions.getServicesImpl();
             for (int i = 0; i < servicesInterface.size(); i++) {
-                ServiceConfig service = new ServiceConfig<>();
-                service.setInterface(servicesInterface.get(i));
-                RaftRpcService rpcService = (RaftRpcService) servicesImpl.get(i).newInstance();
-                service.setRef(rpcService);
-                service.setAsync(true);
-                services.add(service);
+                services.add(createServiceConfig(servicesInterface.get(i), servicesImpl.get(i)));
             }
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
+            List<Class> clientServiceInterface = this.rpcRemoteOptions.getClientServicesInterface();
+            List<Class> clientServiceImpl = this.rpcRemoteOptions.getClientServicesImpl();
+            for (int i = 0; i < clientServiceInterface.size(); i++) {
+                services.add(createServiceConfig(clientServiceInterface.get(i), clientServiceImpl.get(i)));
+            }
+
+            List<Class> userServiceInterface = this.rpcRemoteOptions.getUserServicesInterface();
+            List<Class> userServiceImpl = this.rpcRemoteOptions.getUserServicesImpl();
+            for (int i = 0; i < userServiceInterface.size(); i++) {
+                services.add(createServiceConfig(userServiceInterface.get(i), userServiceImpl.get(i)));
+            }
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -69,6 +77,15 @@ public class RpcServer {
                     .start()
                     .await();
         }).start();
+    }
+
+    private ServiceConfig createServiceConfig(Class interfacez, Class implz) throws Exception {
+        ServiceConfig service = new ServiceConfig<>();
+        service.setInterface(interfacez);
+        Object rpcService =  implz.newInstance();
+        service.setRef(rpcService);
+        service.setAsync(true);
+        return service;
     }
 
 

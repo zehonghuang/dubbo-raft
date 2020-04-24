@@ -42,6 +42,10 @@ public class Status {
         return this.state == null || this.state.code == 0;
     }
 
+    public void setError(int code, String fmt, Object... args) {
+        this.state = new State(code, String.format(String.valueOf(fmt), args));
+    }
+
     public String getErrorMsg() {
         return this.state == null ? null : this.state.msg;
     }

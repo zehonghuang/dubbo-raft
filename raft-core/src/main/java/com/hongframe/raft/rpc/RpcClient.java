@@ -31,13 +31,6 @@ public class RpcClient extends AbstractRpcClient {
     public void init(RpcRemoteOptions options) {
     }
 
-    public boolean connect(PeerId peerId) {
-        if (!getReferences().containsKey(peerId)) {
-            getReferences().put(peerId, addReferenceConfig(peerId));
-        }
-        return true;
-    }
-
     public CompletableFuture<?> requestVote(PeerId peerId, RequestVoteRequest request, Invokeable callback) {
         return invokeAsync(findReferenceConfig(peerId, request), request, callback);
     }

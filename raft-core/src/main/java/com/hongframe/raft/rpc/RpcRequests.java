@@ -595,7 +595,7 @@ public class RpcRequests {
 
     }
 
-    public final static class Response<T extends Message> {
+    public final static class Response<T extends Message> implements Message {
         private T data;
         private ErrorResponse error;
 
@@ -632,6 +632,16 @@ public class RpcRequests {
                     "data=" + data +
                     ", error=" + error +
                     '}';
+        }
+
+        @Override
+        public String getPeerId() {
+            return null;
+        }
+
+        @Override
+        public String getGroupId() {
+            return null;
         }
     }
 

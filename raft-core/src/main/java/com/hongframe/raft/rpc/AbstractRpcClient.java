@@ -36,11 +36,25 @@ public abstract class AbstractRpcClient {
         return rpcRemoteOptions;
     }
 
+    public boolean connect(PeerId peerId) {
+        if (!getReferences().containsKey(peerId)) {
+            getReferences().put(peerId, addReferenceConfig(peerId));
+        }
+        return true;
+    }
+
+    public CompletableFuture<?> invokeAsync(PeerId peerId, Message request, Invokeable callback) {
+        return invokeAsync(findReferenceConfig(peerId, request), request, callback);
+    }
+
     public Message invoke(ReferenceConfig reference, Message request) {
         try {
-            return (Message) invokeAsync(reference, request, null, false).get();
+            Map<String, String> res = (Map<String, String>) invokeAsync(reference, request, null, false).get();
+            Object o = Class.forName(res.get("class")).newInstance();
+            BeanUtils.populate(o, res);
+            return (Message) o;
         } catch (Exception e) {
-            LOG.warn("get message fail {}", request.getPeerId());
+            LOG.error("get message fail {}", request.getPeerId(), e);
         }
         return null;
     }

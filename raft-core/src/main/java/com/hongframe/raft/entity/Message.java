@@ -18,8 +18,12 @@ public interface Message extends java.io.Serializable {
         return null;
     }
 
-    String getPeerId();
+    default String getPeerId() {
+        return null;
+    }
 
-    String getGroupId();
+    default String getGroupId() {
+        return null;
+    }
 
 }

@@ -580,7 +580,14 @@ public class NodeImpl implements Node {
     }
 
     @Override
+    public PeerId getLeaderId() {
+        return this.leaderId;
+    }
+
+    @Override
     public void apply(Task task) {
+        LogEntry entry = new LogEntry();
+        entry.setData(task.getData());
         task.getCallback().run(new Status());
     }
 

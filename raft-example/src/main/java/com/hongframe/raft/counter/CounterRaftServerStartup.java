@@ -1,11 +1,13 @@
-package com.hongframe.raft;
+package com.hongframe.raft.counter;
 
+import com.hongframe.raft.DubboRaftRpcFactory;
+import com.hongframe.raft.Node;
+import com.hongframe.raft.RaftGroupService;
 import com.hongframe.raft.conf.Configuration;
+import com.hongframe.raft.counter.rpc.CounterService;
+import com.hongframe.raft.counter.rpc.CounterServiceImpl;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.NodeOptions;
-import com.hongframe.raft.option.RpcClientOptions;
-import com.hongframe.raft.option.RpcRemoteOptions;
-import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcServer;
 import com.hongframe.raft.util.Endpoint;
 import org.slf4j.Logger;
@@ -13,11 +15,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
- * @version create time: 2020-04-15 18:01
+ * create time: 2020-04-24 22:32
  */
-public class RaftServerStartup {
+public class CounterRaftServerStartup {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RaftServerStartup.class);
+    private static final Logger LOG = LoggerFactory.getLogger(CounterRaftServerStartup.class);
 
     public static final String NODES = "localhost:8888,localhost:8889,localhost:8890,localhost:8891,localhost:8892";
 
@@ -31,6 +33,7 @@ public class RaftServerStartup {
 
 
         RpcServer rpcServer = DubboRaftRpcFactory.createRaftRpcServer(endpoint);
+        rpcServer.registerUserService(CounterService.class, CounterServiceImpl.class);
 
         Configuration configuration = new Configuration();
         configuration.parse(servers);
@@ -44,6 +47,5 @@ public class RaftServerStartup {
 
         return node;
     }
-
 
 }

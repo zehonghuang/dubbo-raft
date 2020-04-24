@@ -1,7 +1,10 @@
 package com.hongframe.raft;
 
 import com.hongframe.raft.conf.Configuration;
+import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.PeerId;
+import com.hongframe.raft.rpc.ClientRequests.*;
+import com.hongframe.raft.rpc.ClientService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +57,91 @@ public class RouteTable {
             }
         }
         return gc;
+    }
+
+    public boolean updateLeader(final String groupId, final String leaderStr) {
+        final PeerId leader = new PeerId();
+        if (leader.parse(leaderStr)) {
+            return updateLeader(groupId, leader);
+        } else {
+            return false;
+        }
+    }
+
+    public boolean updateLeader(final String groupId, final PeerId leader) {
+        final GroupConf gc = getGroupConf(groupId);
+        final StampedLock stampedLock = gc.stampedLock;
+        final long stamp = stampedLock.writeLock();
+        try {
+            gc.leader = leader;
+        } finally {
+            stampedLock.unlockWrite(stamp);
+        }
+        return true;
+    }
+
+    public PeerId selectLeader(final String groupId) {
+        final GroupConf gc = this.groupConfTable.get(groupId);
+        if (gc == null) {
+            return null;
+        }
+        final StampedLock stampedLock = gc.stampedLock;
+        long stamp = stampedLock.tryOptimisticRead();
+        PeerId leader = gc.leader;
+        if (!stampedLock.validate(stamp)) {
+            stamp = stampedLock.readLock();
+            try {
+                leader = gc.leader;
+            } finally {
+                stampedLock.unlockRead(stamp);
+            }
+        }
+        return leader;
+    }
+
+    public Configuration getConf(final String groupId) {
+        final GroupConf gc = this.groupConfTable.get(groupId);
+        if (gc == null) {
+            return null;
+        }
+        final StampedLock stampedLock = gc.stampedLock;
+        long stamp = stampedLock.tryOptimisticRead();
+        Configuration conf = gc.conf;
+        if (!stampedLock.validate(stamp)) {
+            stamp = stampedLock.readLock();
+            try {
+                conf = gc.conf;
+            } finally {
+                stampedLock.unlockRead(stamp);
+            }
+        }
+        return conf;
+    }
+
+    public Status refreshLeader(final ClientService clientService, final String groupId) {
+        final Configuration conf = getConf(groupId);
+        if(conf == null) {
+            return new Status(10001, "");
+        }
+
+        GetLeaderRequest request = new GetLeaderRequest();
+        request.setGroupId(groupId);
+
+        for(PeerId peerId : conf.getPeers()) {
+            if(!clientService.connect(peerId)) {
+                return new Status(10001, "");
+            }
+            Message message = clientService.getLeader(peerId, request);
+            if(message instanceof GetLeaderResponse) {
+                GetLeaderResponse response = (GetLeaderResponse) message;
+                String leaderStr = response.getLeaderId();
+                updateLeader(groupId, leaderStr);
+                return Status.OK();
+            } else {
+                return new Status(10001, "");
+            }
+        }
+        return new Status(10001, "");
     }
 
     private static class GroupConf {

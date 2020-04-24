@@ -1,6 +1,7 @@
 package com.hongframe.raft;
 
 import com.hongframe.raft.entity.NodeId;
+import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.entity.Task;
 import com.hongframe.raft.option.NodeOptions;
 
@@ -11,6 +12,8 @@ import com.hongframe.raft.option.NodeOptions;
 public interface Node extends Lifecycle<NodeOptions> {
 
     NodeId getNodeId();
+
+    PeerId getLeaderId();
 
     void apply(final Task task);
 

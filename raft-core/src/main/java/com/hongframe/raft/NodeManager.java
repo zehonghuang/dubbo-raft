@@ -60,6 +60,10 @@ public class NodeManager {
         return false;
     }
 
+    public List<Node> getNodesByGroupId(final String groupId) {
+        return this.groupMap.get(groupId);
+    }
+
     public Node get(final String groupId, final PeerId peerId) {
         return this.nodeMap.get(new NodeId(groupId, peerId));
     }
