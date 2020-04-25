@@ -9,3 +9,4 @@
 - 增加计时器示例
 - 增加disruptor处理client发送的任务
 - 增加RocksDB做为日志存储
+- 🚩计划调研SegmentLog，分段存储
