@@ -25,6 +25,7 @@
         <log4j.version>2.2</log4j.version>
         <slf4j.version>1.7.30</slf4j.version>
         <disruptor.version>3.4.2</disruptor.version>
+        <rocksdb.version>5.5.1</rocksdb.version>
     </properties>
 
     <dependencies>
@@ -113,6 +114,12 @@
             <groupId>com.lmax</groupId>
             <artifactId>disruptor</artifactId>
             <version>${disruptor.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.rocksdb</groupId>
+            <artifactId>rocksdbjni</artifactId>
+            <version>${rocksdb.version}</version>
         </dependency>
     </dependencies>
 
