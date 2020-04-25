@@ -8,6 +8,8 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.WriteOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.locks.Lock;
@@ -20,7 +22,13 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class RocksDBLogStorage implements LogStorage {
 
-    private String path;
+    private static final Logger LOG = LoggerFactory.getLogger(RocksDBLogStorage.class);
+
+    static {
+        RocksDB.loadLibrary();
+    }
+
+    private final String path;
     private RocksDB db;
     private DBOptions dbOptions;
     private WriteOptions writeOptions;
@@ -32,6 +40,10 @@ public class RocksDBLogStorage implements LogStorage {
 
     private LogEntryDecoder decoder;
     private LogEntryEncoder encoder;
+
+    public RocksDBLogStorage(String path) {
+        this.path = path;
+    }
 
     @Override
     public long getFirstLogIndex() {
