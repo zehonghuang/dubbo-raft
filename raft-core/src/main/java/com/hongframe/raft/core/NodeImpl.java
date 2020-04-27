@@ -1,11 +1,11 @@
 package com.hongframe.raft.core;
 
 import com.hongframe.raft.*;
+import com.hongframe.raft.callback.CallbackQueue;
+import com.hongframe.raft.callback.CallbackQueueImpl;
 import com.hongframe.raft.conf.ConfigurationEntry;
 import com.hongframe.raft.entity.*;
-import com.hongframe.raft.option.NodeOptions;
-import com.hongframe.raft.option.RaftOptions;
-import com.hongframe.raft.option.ReplicatorGroupOptions;
+import com.hongframe.raft.option.*;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
@@ -66,8 +66,10 @@ public class NodeImpl implements Node {
     private Disruptor<LogEntrAndCallback> applyDisruptor;
     private RingBuffer<LogEntrAndCallback> applyQueue;
 
+    private CallbackQueue callbackQueue;
     private BallotBox ballotBox;
     private LogManager logManager;
+    private FSMCaller caller;
     private RaftMetaStorage metaStorage;
     private ReplicatorGroup replicatorGroup;
 
@@ -134,10 +136,38 @@ public class NodeImpl implements Node {
         this.voteCtx.init(this.conf.getConf());
         this.prevoteCtx.init(this.conf.getConf());
 
+
+        this.callbackQueue = new CallbackQueueImpl();
+        FSMCallerOptions fsmCallerOptions = new FSMCallerOptions();
+        fsmCallerOptions.setFsm(this.nodeOptions.getStateMachine());
+        fsmCallerOptions.setBootstrapId(new LogId());
+        fsmCallerOptions.setNode(this);
+        fsmCallerOptions.setCallbackQueue(this.callbackQueue);
+        fsmCallerOptions.setLogManager(this.logManager);
+        this.caller = new FSMCallerImpl();
+        this.caller.init(fsmCallerOptions);
+
+        BallotBoxOptions ballotBoxOptions = new BallotBoxOptions();
+        ballotBoxOptions.setCaller(this.caller);
+        ballotBoxOptions.setCallbackQueue(this.callbackQueue);
+        this.ballotBox = new BallotBox();
+        this.ballotBox.init(ballotBoxOptions);
+
         this.electionTimer = new ReentrantTimer("Dubbo-raft-ElectionTimer", this.nodeOptions.getElectionTimeoutMs()) {
             @Override
             protected void onTrigger() {
                 handleElectionTimeout();
+            }
+
+            @Override
+            protected int adjustTimeout(int timeoutMs) {
+                return randomTimeout(timeoutMs);
+            }
+        };
+        this.voteTimer = new ReentrantTimer("Dubbo-raft-VoteTimer", this.nodeOptions.getElectionTimeoutMs()) {
+            @Override
+            protected void onTrigger() {
+                handleVoteTimeout();
             }
 
             @Override
@@ -386,7 +416,7 @@ public class NodeImpl implements Node {
     }
 
     private void handleVoteTimeout() {
-
+        //TODO handleVoteTimeout
     }
 
     private final class RequestVoteResponseCallback extends ResponseCallbackAdapter {
@@ -485,9 +515,11 @@ public class NodeImpl implements Node {
     private void becomeLeader() {
         this.state = State.STATE_LEADER;
         this.leaderId = this.serverId.copy();
-        //TODO becomeLeader resetTerm
+        this.voteTimer.stop();
+        this.replicatorGroup.resetTerm(this.currTerm);
         LOG.info("peer {} become Leader", this.leaderId);
         this.replicatorGroup.resetTerm(this.currTerm);
+        this.ballotBox.resetPendingIndex(logManager.getLastLogIndex() + 1);
         for(PeerId peerId : this.conf.getConf().getPeers()) {
             if(peerId.equals(this.serverId)) {
                 continue;
@@ -528,7 +560,7 @@ public class NodeImpl implements Node {
             this.state = State.STATE_CANDIDATE;
             this.currTerm++;
             this.voteId = this.serverId.copy();
-            //TODO vote timer 未实现
+            this.voteTimer.start();
             this.voteCtx.init(this.conf.getConf());
             oldTerm = this.currTerm;
         } finally {
@@ -605,8 +637,38 @@ public class NodeImpl implements Node {
         }
     }
 
-    private void executeTasks(List<LogEntrAndCallback> tasks) {
-        //TODO executeTasks
+    private void executeTasks(final List<LogEntrAndCallback> tasks) {
+        this.writeLock.lock();
+        try {
+            if(this.state != State.STATE_LEADER) {
+                Status status = new Status(10001, "");
+                Utils.runInThread(() -> {
+                   for(LogEntrAndCallback callback : tasks) {
+                       callback.callback.run(status);
+                   }
+                });
+                return;
+            }
+            List<LogEntry> entries = new ArrayList<>(tasks.size());
+            for(LogEntrAndCallback task : tasks) {
+                //TODO executeTasks
+                if(!this.ballotBox.appendPendingTask(this.conf.getConf(), null, task.callback)) {
+                    continue;
+                }
+                task.entry.getId().setTerm(this.currTerm);
+                task.entry.setType(EntryType.ENTRY_TYPE_DATA);
+                entries.add(task.entry);
+            }
+            this.logManager.appendEntries(entries, new Callback() {
+                @Override
+                public void run(Status status) {
+                    //TODO Stable
+                }
+            });
+
+        } finally {
+            this.writeLock.unlock();
+        }
     }
 
     @Override

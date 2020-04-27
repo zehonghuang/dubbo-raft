@@ -17,7 +17,7 @@ public class FSMCallerOptions {
     private StateMachine fsm;
     private Callback afterShutdown;
     private LogId bootstrapId;
-    private CallbackQueue closureQueue;
+    private CallbackQueue callbackQueue;
     private NodeImpl node;
 
     public LogManager getLogManager() {
@@ -52,12 +52,12 @@ public class FSMCallerOptions {
         this.bootstrapId = bootstrapId;
     }
 
-    public CallbackQueue getClosureQueue() {
-        return closureQueue;
+    public CallbackQueue getCallbackQueue() {
+        return callbackQueue;
     }
 
-    public void setClosureQueue(CallbackQueue closureQueue) {
-        this.closureQueue = closureQueue;
+    public void setCallbackQueue(CallbackQueue callbackQueue) {
+        this.callbackQueue = callbackQueue;
     }
 
     public NodeImpl getNode() {

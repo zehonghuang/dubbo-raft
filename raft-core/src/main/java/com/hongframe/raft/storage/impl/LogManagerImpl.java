@@ -1,7 +1,11 @@
 package com.hongframe.raft.storage.impl;
 
+import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
 import com.hongframe.raft.storage.LogManager;
+
+import java.util.List;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -26,5 +30,10 @@ public class LogManagerImpl implements LogManager {
     @Override
     public long getTerm(long index) {
         return 0;
+    }
+
+    @Override
+    public void appendEntries(List<LogEntry> entries, Callback callback) {
+
     }
 }

@@ -1,6 +1,10 @@
 package com.hongframe.raft.storage;
 
+import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
+
+import java.util.List;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -15,5 +19,7 @@ public interface LogManager {
     LogId getLastLogId(final boolean isFlush);
 
     long getTerm(final long index);
+
+    void appendEntries(final List<LogEntry> entries, Callback callback);
 
 }

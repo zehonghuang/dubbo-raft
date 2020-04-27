@@ -1,5 +1,6 @@
 package com.hongframe.raft.option;
 
+import com.hongframe.raft.StateMachine;
 import com.hongframe.raft.conf.Configuration;
 
 /**
@@ -13,6 +14,16 @@ public class NodeOptions {
     private RaftOptions raftOptions = new RaftOptions();
 
     private Configuration config;
+
+    private StateMachine stateMachine;
+
+    public StateMachine getStateMachine() {
+        return stateMachine;
+    }
+
+    public void setStateMachine(StateMachine stateMachine) {
+        this.stateMachine = stateMachine;
+    }
 
     public int getElectionTimeoutMs() {
         return electionTimeoutMs;
