@@ -8,7 +8,7 @@ import com.hongframe.raft.counter.rpc.IncrementAndGetRequest;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcRemoteOptions;
 import com.hongframe.raft.rpc.ClientService;
-import com.hongframe.raft.rpc.ResponseCallbackAdapter;
+import com.hongframe.raft.callback.ResponseCallbackAdapter;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com

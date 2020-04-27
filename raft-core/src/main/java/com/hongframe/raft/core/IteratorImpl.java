@@ -1,7 +1,7 @@
 package com.hongframe.raft.core;
 
 import com.hongframe.raft.StateMachine;
-import com.hongframe.raft.rpc.Callback;
+import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.storage.LogManager;
 
 import java.util.List;

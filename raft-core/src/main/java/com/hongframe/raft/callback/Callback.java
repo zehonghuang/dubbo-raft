@@ -1,4 +1,4 @@
-package com.hongframe.raft.rpc;
+package com.hongframe.raft.callback;
 
 import com.hongframe.raft.Status;
 

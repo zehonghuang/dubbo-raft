@@ -1,4 +1,7 @@
-package com.hongframe.raft.rpc;
+package com.hongframe.raft.callback;
+
+import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.rpc.RpcRequests;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com

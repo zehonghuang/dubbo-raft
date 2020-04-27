@@ -1,16 +1,10 @@
 package com.hongframe.raft;
 
-import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.PeerId;
-import com.hongframe.raft.option.RpcClientOptions;
-import com.hongframe.raft.option.RpcRemoteOptions;
-import com.hongframe.raft.rpc.ResponseCallbackAdapter;
+import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcRequests;
 import com.hongframe.raft.util.Endpoint;
-
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com

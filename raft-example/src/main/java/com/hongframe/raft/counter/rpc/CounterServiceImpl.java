@@ -1,10 +1,9 @@
 package com.hongframe.raft.counter.rpc;
 
-import com.hongframe.raft.Node;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.counter.CounterRaftServerStartup;
 import com.hongframe.raft.entity.Task;
-import com.hongframe.raft.rpc.ResponseCallbackAdapter;
+import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcRequests.*;
 import org.apache.dubbo.rpc.AsyncContext;
 import org.apache.dubbo.rpc.RpcContext;

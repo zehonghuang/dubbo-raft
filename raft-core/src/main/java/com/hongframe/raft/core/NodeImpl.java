@@ -6,8 +6,8 @@ import com.hongframe.raft.entity.*;
 import com.hongframe.raft.option.NodeOptions;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.option.ReplicatorGroupOptions;
-import com.hongframe.raft.rpc.Callback;
-import com.hongframe.raft.rpc.ResponseCallbackAdapter;
+import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.RaftMetaStorage;
@@ -21,6 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -64,6 +66,7 @@ public class NodeImpl implements Node {
     private Disruptor<LogEntrAndCallback> applyDisruptor;
     private RingBuffer<LogEntrAndCallback> applyQueue;
 
+    private BallotBox ballotBox;
     private LogManager logManager;
     private RaftMetaStorage metaStorage;
     private ReplicatorGroup replicatorGroup;
@@ -80,19 +83,22 @@ public class NodeImpl implements Node {
         LogEntry entry;
     }
 
-    private static class LogEntryCallbackFactory implements EventFactory<LogEntrAndCallback> {
+    private class LogEntryCallbackFactory implements EventFactory<LogEntrAndCallback> {
         @Override
         public LogEntrAndCallback newInstance() {
             return new LogEntrAndCallback();
         }
     }
 
-    private static class LogEntryCallbackEventHandler implements EventHandler<LogEntrAndCallback> {
+    private class LogEntryCallbackEventHandler implements EventHandler<LogEntrAndCallback> {
+
+        private final List<LogEntrAndCallback> tasks = new ArrayList<>();
         @Override
         public void onEvent(LogEntrAndCallback event, long sequence, boolean endOfBatch) throws Exception {
-            //TODO LogEntryCallbackEventHandler
-            event.callback.run(new Status());
-            LOG.info("run LogEntryCallbackEventHandler");
+            tasks.add(event);
+            if(tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
+                executeTasks(tasks);
+            }
         }
     }
 
@@ -597,6 +603,10 @@ public class NodeImpl implements Node {
                 break;
             }
         }
+    }
+
+    private void executeTasks(List<LogEntrAndCallback> tasks) {
+        //TODO executeTasks
     }
 
     @Override

@@ -18,6 +18,16 @@ public class RaftOptions {
 
     private int disruptorBufferSize = 16384;
 
+    private int applyBatch = 32;
+
+    public int getApplyBatch() {
+        return applyBatch;
+    }
+
+    public void setApplyBatch(int applyBatch) {
+        this.applyBatch = applyBatch;
+    }
+
     public int getDisruptorBufferSize() {
         return disruptorBufferSize;
     }

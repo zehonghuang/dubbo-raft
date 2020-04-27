@@ -2,7 +2,7 @@ package com.hongframe.raft.core;
 
 import com.hongframe.raft.Status;
 import com.hongframe.raft.option.ReplicatorOptions;
-import com.hongframe.raft.rpc.ResponseCallbackAdapter;
+import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcRequests.*;
 import com.hongframe.raft.util.ObjectLock;

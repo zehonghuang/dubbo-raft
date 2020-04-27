@@ -1,5 +1,6 @@
-package com.hongframe.raft.rpc;
+package com.hongframe.raft.callback;
 
+import com.hongframe.raft.callback.Invokeable;
 import com.hongframe.raft.entity.Message;
 
 /**

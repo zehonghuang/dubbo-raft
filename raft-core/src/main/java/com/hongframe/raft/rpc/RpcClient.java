@@ -1,5 +1,6 @@
 package com.hongframe.raft.rpc;
 
+import com.hongframe.raft.callback.Invokeable;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcRemoteOptions;
 import org.apache.dubbo.common.URL;

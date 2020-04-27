@@ -1,6 +1,6 @@
 package com.hongframe.raft;
 
-import com.hongframe.raft.rpc.Callback;
+import com.hongframe.raft.callback.Callback;
 
 import java.nio.ByteBuffer;
 

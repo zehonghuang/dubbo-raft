@@ -1,7 +1,9 @@
-package com.hongframe.raft.rpc;
+package com.hongframe.raft.callback;
 
 import com.hongframe.raft.Status;
+import com.hongframe.raft.callback.ResponseCallback;
 import com.hongframe.raft.entity.Message;
+import com.hongframe.raft.rpc.RpcRequests;
 
 import java.util.Objects;
 
