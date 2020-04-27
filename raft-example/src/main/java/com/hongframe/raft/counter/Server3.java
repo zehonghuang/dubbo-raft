@@ -8,7 +8,7 @@ public class Server3 {
     private static final Logger LOG = LoggerFactory.getLogger(Server3.class);
 
     public static void main(String[] args) {
-        CounterRaftServerStartup.startup(8890, CounterRaftServerStartup.NODES);
+        CounterRaftServerStartup.create(8890, CounterRaftServerStartup.NODES);
         LOG.info("server3 started...");
     }
 

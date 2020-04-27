@@ -30,13 +30,12 @@ public class RpcServer {
     private DubboBootstrap dubboBootstrap;
 
 
-
     public RpcServer(Endpoint endpoint, RpcRemoteOptions options) {
         this.port = endpoint.getPort();
         this.rpcRemoteOptions = options;
     }
 
-    public void registerUserService(Class serviceInterface, Class serviceImpl) {
+    public void registerUserService(Class serviceInterface, Object serviceImpl) {
         this.rpcRemoteOptions.registerUserService(serviceInterface, serviceImpl);
     }
 
@@ -55,7 +54,7 @@ public class RpcServer {
             }
 
             List<Class> userServiceInterface = this.rpcRemoteOptions.getUserServicesInterface();
-            List<Class> userServiceImpl = this.rpcRemoteOptions.getUserServicesImpl();
+            List<Object> userServiceImpl = this.rpcRemoteOptions.getUserServicesImpl();
             for (int i = 0; i < userServiceInterface.size(); i++) {
                 services.add(createServiceConfig(userServiceInterface.get(i), userServiceImpl.get(i)));
             }
@@ -79,16 +78,19 @@ public class RpcServer {
         }).start();
     }
 
-    private ServiceConfig createServiceConfig(Class interfacez, Class implz) throws Exception {
+    private ServiceConfig createServiceConfig(Class interfacez, Object implz) throws Exception {
         ServiceConfig service = new ServiceConfig<>();
         service.setInterface(interfacez);
-        Object rpcService =  implz.newInstance();
+        Object rpcService;
+        if (implz instanceof Class) {
+            rpcService = ((Class) implz).newInstance();
+        } else {
+            rpcService = implz;
+        }
         service.setRef(rpcService);
         service.setAsync(true);
         return service;
     }
-
-
 
 
 }

@@ -26,7 +26,7 @@ public class RpcRemoteOptions {
     private List<Class> clientServicesImpl = new ArrayList<>();
 
     private List<Class> userServicesInterface = new ArrayList<>();
-    private List<Class> userServicesImpl = new ArrayList<>();
+    private List<Object> userServicesImpl = new ArrayList<>();
 
     public RpcRemoteOptions() {
         init();
@@ -59,7 +59,7 @@ public class RpcRemoteOptions {
         clientServicesImpl.add(implz);
     }
 
-    public void registerUserService(Class serviceInterface, Class serviceImpl) {
+    public void registerUserService(Class serviceInterface, Object serviceImpl) {
         userServicesInterface.add(serviceInterface);
         userServicesImpl.add(serviceImpl);
     }
@@ -76,7 +76,7 @@ public class RpcRemoteOptions {
         return userServicesInterface;
     }
 
-    public List<Class> getUserServicesImpl() {
+    public List<Object> getUserServicesImpl() {
         return userServicesImpl;
     }
 

@@ -14,10 +14,7 @@ import com.hongframe.raft.storage.RaftMetaStorage;
 import com.hongframe.raft.storage.impl.LogManagerImpl;
 import com.hongframe.raft.storage.impl.RaftMetaStorageImpl;
 import com.hongframe.raft.util.*;
-import com.lmax.disruptor.BlockingWaitStrategy;
-import com.lmax.disruptor.EventFactory;
-import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import org.slf4j.Logger;
@@ -94,6 +91,8 @@ public class NodeImpl implements Node {
         @Override
         public void onEvent(LogEntrAndCallback event, long sequence, boolean endOfBatch) throws Exception {
             //TODO LogEntryCallbackEventHandler
+            event.callback.run(new Status());
+            LOG.info("run LogEntryCallbackEventHandler");
         }
     }
 
@@ -125,8 +124,6 @@ public class NodeImpl implements Node {
         this.conf.setConf(this.nodeOptions.getConfig());
 
         NodeManager.getInstance().add(this);
-
-
 
         this.voteCtx.init(this.conf.getConf());
         this.prevoteCtx.init(this.conf.getConf());
@@ -586,9 +583,20 @@ public class NodeImpl implements Node {
 
     @Override
     public void apply(Task task) {
+
+        LOG.info("into apply");
         LogEntry entry = new LogEntry();
         entry.setData(task.getData());
-        task.getCallback().run(new Status());
+
+        final EventTranslator<LogEntrAndCallback>  translator = (event, seq) -> {
+            event.callback = task.getCallback();
+            event.entry = entry;
+        };
+        while (true) {
+            if(this.applyQueue.tryPublishEvent(translator)) {
+                break;
+            }
+        }
     }
 
     @Override

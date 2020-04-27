@@ -25,15 +25,17 @@ public class CounterRaftServerStartup {
 
     public static final String GROUP = "raft";
 
+    private Node node;
 
-    public static Node startup(int port, String servers) {
+
+    private Node startup(int port, String servers) {
 
         Endpoint endpoint = new Endpoint("localhost", port);
         PeerId serverId = new PeerId(endpoint, 0);
 
 
         RpcServer rpcServer = DubboRaftRpcFactory.createRaftRpcServer(endpoint);
-        rpcServer.registerUserService(CounterService.class, CounterServiceImpl.class);
+        rpcServer.registerUserService(CounterService.class, new CounterServiceImpl(this));
 
         Configuration configuration = new Configuration();
         configuration.parse(servers);
@@ -42,10 +44,21 @@ public class CounterRaftServerStartup {
         nodeOptions.setConfig(configuration);
 
         RaftGroupService raftGroupService = new RaftGroupService(GROUP, serverId, nodeOptions, rpcServer);
-        Node node = raftGroupService.start();
+        this.node = raftGroupService.start();
         LOG.info("started...");
 
         return node;
     }
 
+    private CounterRaftServerStartup(int port, String servers) {
+        this.node = startup(port, servers);
+    }
+
+    public static CounterRaftServerStartup create(int port, String servers) {
+        return new CounterRaftServerStartup(port, servers);
+    }
+
+    public Node getNode() {
+        return node;
+    }
 }

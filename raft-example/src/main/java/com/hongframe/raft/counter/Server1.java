@@ -12,7 +12,7 @@ public class Server1 {
     private static final Logger LOG = LoggerFactory.getLogger(Server1.class);
 
     public static void main(String[] args) {
-        CounterRaftServerStartup.startup(8888, CounterRaftServerStartup.NODES);
+        CounterRaftServerStartup.create(8888, CounterRaftServerStartup.NODES);
         LOG.info("server1 started...");
     }
 
