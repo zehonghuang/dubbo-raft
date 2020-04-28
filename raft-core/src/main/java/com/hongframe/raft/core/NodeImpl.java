@@ -6,6 +6,7 @@ import com.hongframe.raft.callback.CallbackQueueImpl;
 import com.hongframe.raft.conf.ConfigurationEntry;
 import com.hongframe.raft.conf.ConfigurationManager;
 import com.hongframe.raft.entity.*;
+import com.hongframe.raft.entity.codec.proto.ProtoLogEntryCodecFactory;
 import com.hongframe.raft.option.*;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
@@ -115,7 +116,13 @@ public class NodeImpl implements Node {
 
         this.nodeOptions = opts;
         this.raftOptions = this.nodeOptions.getRaftOptions();
-        this.rpcClient = DubboRaftRpcFactory.createRaftRpcClient();
+
+        this.configurationManager = new ConfigurationManager();
+        this.conf = new ConfigurationEntry();
+        this.conf.setConf(this.nodeOptions.getConfig());
+
+        this.voteCtx.init(this.conf.getConf());
+        this.prevoteCtx.init(this.conf.getConf());
 
         this.timerManger = new TimerManager(Utils.CPUS);
         this.electionTimer = new ReentrantTimer("Dubbo-raft-ElectionTimer", this.nodeOptions.getElectionTimeoutMs()) {
@@ -141,18 +148,10 @@ public class NodeImpl implements Node {
             }
         };
 
-        this.configurationManager = new ConfigurationManager();
-        this.conf = new ConfigurationEntry();
-        this.conf.setConf(this.nodeOptions.getConfig());
-
-        this.voteCtx.init(this.conf.getConf());
-        this.prevoteCtx.init(this.conf.getConf());
-
-
         this.logStorage = new RocksDBLogStorage(this.nodeOptions.getLogUri());
         LogStorageOptions logStorageOptions = new LogStorageOptions();
         logStorageOptions.setConfigurationManager(this.configurationManager);
-        logStorageOptions.setCodecFactory(null);//TODO setCodecFactory
+        logStorageOptions.setCodecFactory(new ProtoLogEntryCodecFactory());//TODO setCodecFactory
         this.logStorage.init(logStorageOptions);
 
         this.logManager = new LogManagerImpl();
@@ -167,6 +166,7 @@ public class NodeImpl implements Node {
         this.currTerm = this.metaStorage.getTerm();
         this.voteId = this.metaStorage.getVotedFor().copy();
 
+        this.rpcClient = DubboRaftRpcFactory.createRaftRpcClient();
         this.replicatorGroup = new ReplicatorGroupImpl();
         ReplicatorGroupOptions rgo = new ReplicatorGroupOptions();
         rgo.setElectionTimeoutMs(this.nodeOptions.getElectionTimeoutMs());

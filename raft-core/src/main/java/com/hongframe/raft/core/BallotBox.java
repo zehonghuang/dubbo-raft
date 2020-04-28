@@ -32,6 +32,8 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
 
     @Override
     public boolean init(BallotBoxOptions opts) {
+        this.caller = opts.getCaller();
+        this.callbackQueue = opts.getCallbackQueue();
         return false;
     }
 
