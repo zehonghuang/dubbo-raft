@@ -1,7 +1,7 @@
 package com.hongframe.raft.option;
 
+import com.hongframe.raft.conf.ConfigurationManager;
 import com.hongframe.raft.entity.codec.LogEntryCodecFactory;
-import org.apache.log4j.lf5.viewer.configure.ConfigurationManager;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com

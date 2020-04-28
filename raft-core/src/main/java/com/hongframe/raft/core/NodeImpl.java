@@ -4,15 +4,18 @@ import com.hongframe.raft.*;
 import com.hongframe.raft.callback.CallbackQueue;
 import com.hongframe.raft.callback.CallbackQueueImpl;
 import com.hongframe.raft.conf.ConfigurationEntry;
+import com.hongframe.raft.conf.ConfigurationManager;
 import com.hongframe.raft.entity.*;
 import com.hongframe.raft.option.*;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
+import com.hongframe.raft.storage.LogStorage;
 import com.hongframe.raft.storage.RaftMetaStorage;
 import com.hongframe.raft.storage.impl.LogManagerImpl;
 import com.hongframe.raft.storage.impl.RaftMetaStorageImpl;
+import com.hongframe.raft.storage.impl.RocksDBLogStorage;
 import com.hongframe.raft.util.*;
 import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
@@ -53,6 +56,7 @@ public class NodeImpl implements Node {
     private PeerId voteId;
     private NodeId nodeId;
     private ConfigurationEntry conf;
+    private ConfigurationManager configurationManager;
     private volatile long lastLeaderTimestamp;
 
     private NodeOptions nodeOptions;
@@ -68,6 +72,7 @@ public class NodeImpl implements Node {
 
     private CallbackQueue callbackQueue;
     private BallotBox ballotBox;
+    private LogStorage logStorage;
     private LogManager logManager;
     private FSMCaller caller;
     private RaftMetaStorage metaStorage;
@@ -106,53 +111,13 @@ public class NodeImpl implements Node {
 
     @Override
     public boolean init(NodeOptions opts) {
+        NodeManager.getInstance().add(this);
+
         this.nodeOptions = opts;
         this.raftOptions = this.nodeOptions.getRaftOptions();
         this.rpcClient = DubboRaftRpcFactory.createRaftRpcClient();
 
         this.timerManger = new TimerManager(Utils.CPUS);
-
-        this.logManager = new LogManagerImpl();
-        this.metaStorage = new RaftMetaStorageImpl("." + File.separator + "raft_meta:" + this.serverId.toString());
-        this.currTerm = this.metaStorage.getTerm();
-        this.voteId = this.metaStorage.getVotedFor().copy();
-
-        this.replicatorGroup = new ReplicatorGroupImpl();
-        ReplicatorGroupOptions rgo = new ReplicatorGroupOptions();
-        rgo.setElectionTimeoutMs(this.nodeOptions.getElectionTimeoutMs());
-        rgo.setHeartbeatTimeoutMs(heartbeatTimeout(this.nodeOptions.getElectionTimeoutMs()));
-        rgo.setLogManager(this.logManager);
-        rgo.setNode(this);
-        rgo.setRpcClient(this.rpcClient);
-        rgo.setTimerManager(this.timerManger);
-        this.replicatorGroup.init(this.nodeId.copy(), rgo);
-
-
-        this.conf = new ConfigurationEntry();
-        this.conf.setConf(this.nodeOptions.getConfig());
-
-        NodeManager.getInstance().add(this);
-
-        this.voteCtx.init(this.conf.getConf());
-        this.prevoteCtx.init(this.conf.getConf());
-
-
-        this.callbackQueue = new CallbackQueueImpl();
-        FSMCallerOptions fsmCallerOptions = new FSMCallerOptions();
-        fsmCallerOptions.setFsm(this.nodeOptions.getStateMachine());
-        fsmCallerOptions.setBootstrapId(new LogId());
-        fsmCallerOptions.setNode(this);
-        fsmCallerOptions.setCallbackQueue(this.callbackQueue);
-        fsmCallerOptions.setLogManager(this.logManager);
-        this.caller = new FSMCallerImpl();
-        this.caller.init(fsmCallerOptions);
-
-        BallotBoxOptions ballotBoxOptions = new BallotBoxOptions();
-        ballotBoxOptions.setCaller(this.caller);
-        ballotBoxOptions.setCallbackQueue(this.callbackQueue);
-        this.ballotBox = new BallotBox();
-        this.ballotBox.init(ballotBoxOptions);
-
         this.electionTimer = new ReentrantTimer("Dubbo-raft-ElectionTimer", this.nodeOptions.getElectionTimeoutMs()) {
             @Override
             protected void onTrigger() {
@@ -175,6 +140,58 @@ public class NodeImpl implements Node {
                 return randomTimeout(timeoutMs);
             }
         };
+
+        this.configurationManager = new ConfigurationManager();
+        this.conf = new ConfigurationEntry();
+        this.conf.setConf(this.nodeOptions.getConfig());
+
+        this.voteCtx.init(this.conf.getConf());
+        this.prevoteCtx.init(this.conf.getConf());
+
+
+        this.logStorage = new RocksDBLogStorage(this.nodeOptions.getLogUri());
+        LogStorageOptions logStorageOptions = new LogStorageOptions();
+        logStorageOptions.setConfigurationManager(this.configurationManager);
+        logStorageOptions.setCodecFactory(null);//TODO setCodecFactory
+        this.logStorage.init(logStorageOptions);
+
+        this.logManager = new LogManagerImpl();
+        LogManagerOptions logManagerOptions = new LogManagerOptions();
+        logManagerOptions.setLogStorage(this.logStorage);
+        logManagerOptions.setRaftOptions(this.raftOptions);
+        logManagerOptions.setCaller(this.caller);
+        logManagerOptions.setConfigurationManager(this.configurationManager);
+        this.logManager.init(logManagerOptions);
+
+        this.metaStorage = new RaftMetaStorageImpl("." + File.separator + "raft_meta:" + this.serverId.toString());
+        this.currTerm = this.metaStorage.getTerm();
+        this.voteId = this.metaStorage.getVotedFor().copy();
+
+        this.replicatorGroup = new ReplicatorGroupImpl();
+        ReplicatorGroupOptions rgo = new ReplicatorGroupOptions();
+        rgo.setElectionTimeoutMs(this.nodeOptions.getElectionTimeoutMs());
+        rgo.setHeartbeatTimeoutMs(heartbeatTimeout(this.nodeOptions.getElectionTimeoutMs()));
+        rgo.setLogManager(this.logManager);
+        rgo.setNode(this);
+        rgo.setRpcClient(this.rpcClient);
+        rgo.setTimerManager(this.timerManger);
+        this.replicatorGroup.init(this.nodeId.copy(), rgo);
+
+        this.callbackQueue = new CallbackQueueImpl();
+        FSMCallerOptions fsmCallerOptions = new FSMCallerOptions();
+        fsmCallerOptions.setFsm(this.nodeOptions.getStateMachine());
+        fsmCallerOptions.setBootstrapId(new LogId());
+        fsmCallerOptions.setNode(this);
+        fsmCallerOptions.setCallbackQueue(this.callbackQueue);
+        fsmCallerOptions.setLogManager(this.logManager);
+        this.caller = new FSMCallerImpl();
+        this.caller.init(fsmCallerOptions);
+
+        BallotBoxOptions ballotBoxOptions = new BallotBoxOptions();
+        ballotBoxOptions.setCaller(this.caller);
+        ballotBoxOptions.setCallbackQueue(this.callbackQueue);
+        this.ballotBox = new BallotBox();
+        this.ballotBox.init(ballotBoxOptions);
 
         this.applyDisruptor = DisruptorBuilder.<LogEntrAndCallback> newInstance() //
                 .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //

@@ -1,5 +1,6 @@
 package com.hongframe.raft.storage.impl;
 
+import com.hongframe.raft.conf.ConfigurationManager;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.codec.LogEntryDecoder;
@@ -8,7 +9,6 @@ import com.hongframe.raft.option.LogStorageOptions;
 import com.hongframe.raft.storage.LogStorage;
 import com.hongframe.raft.util.Bits;
 import com.hongframe.raft.util.RocksDBOptionsFactory;
-import org.apache.log4j.lf5.viewer.configure.ConfigurationManager;
 import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -17,6 +17,26 @@ public class NodeOptions {
 
     private StateMachine stateMachine;
 
+    private String logUri;
+
+    private String raftMetaUri;
+
+    public String getLogUri() {
+        return logUri;
+    }
+
+    public void setLogUri(String logUri) {
+        this.logUri = logUri;
+    }
+
+    public String getRaftMetaUri() {
+        return raftMetaUri;
+    }
+
+    public void setRaftMetaUri(String raftMetaUri) {
+        this.raftMetaUri = raftMetaUri;
+    }
+
     public StateMachine getStateMachine() {
         return stateMachine;
     }
