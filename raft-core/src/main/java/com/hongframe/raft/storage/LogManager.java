@@ -14,6 +14,20 @@ import java.util.List;
  */
 public interface LogManager extends Lifecycle<LogManagerOptions> {
 
+    abstract class FlushDoneCallback implements Callback {
+        private List<LogEntry> entries;
+        protected int nEntries;
+        protected long firstLogIndex = 0;
+
+        public void setEntries(List<LogEntry> entries) {
+            this.entries = entries;
+        }
+
+        public void setFirstLogIndex(long firstLogIndex) {
+            this.firstLogIndex = firstLogIndex;
+        }
+    }
+
     long getLastLogIndex();
 
     long getLastLogIndex(final boolean isFlush);
@@ -22,6 +36,8 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
 
     long getTerm(final long index);
 
-    void appendEntries(final List<LogEntry> entries, Callback callback);
+    void appendEntries(final List<LogEntry> entries, FlushDoneCallback callback);
+
+    LogEntry getEntry(final long index);
 
 }

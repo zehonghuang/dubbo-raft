@@ -20,6 +20,16 @@ public class RaftOptions {
 
     private int applyBatch = 32;
 
+    private int disruptorPublishEventWaitTimeoutSecs = 10;
+
+    public int getDisruptorPublishEventWaitTimeoutSecs() {
+        return disruptorPublishEventWaitTimeoutSecs;
+    }
+
+    public void setDisruptorPublishEventWaitTimeoutSecs(int disruptorPublishEventWaitTimeoutSecs) {
+        this.disruptorPublishEventWaitTimeoutSecs = disruptorPublishEventWaitTimeoutSecs;
+    }
+
     public int getApplyBatch() {
         return applyBatch;
     }

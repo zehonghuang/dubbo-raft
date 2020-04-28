@@ -676,7 +676,7 @@ public class NodeImpl implements Node {
                 task.entry.setType(EntryType.ENTRY_TYPE_DATA);
                 entries.add(task.entry);
             }
-            this.logManager.appendEntries(entries, new Callback() {
+            this.logManager.appendEntries(entries, new LogManager.FlushDoneCallback() {
                 @Override
                 public void run(Status status) {
                     //TODO Stable
