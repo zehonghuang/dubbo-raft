@@ -1,5 +1,8 @@
 package com.hongframe.raft.util;
 
+import com.hongframe.raft.entity.PeerId;
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.concurrent.*;
 
 /**
@@ -39,6 +42,17 @@ public class Utils {
 
     public static long monotonicMs() {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+    }
+
+    public static PeerId getPeerId(final String s) {
+        final PeerId peer = new PeerId();
+        if (StringUtils.isBlank(s)) {
+            return peer;
+        }
+        if (peer.parse(s)) {
+            return peer;
+        }
+        throw new IllegalArgumentException("Invalid peer str:" + s);
     }
 
 

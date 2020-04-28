@@ -11,11 +11,11 @@ import com.hongframe.raft.entity.codec.LogEntryEncoder;
 public class ProtoLogEntryCodecFactory implements LogEntryCodecFactory {
     @Override
     public LogEntryEncoder encoder() {
-        return null;
+        return ProtoLogEntryEncoder.INSTANCE;
     }
 
     @Override
     public LogEntryDecoder decoder() {
-        return null;
+        return ProtoLogEntryDecoder.INSTANCE;
     }
 }
