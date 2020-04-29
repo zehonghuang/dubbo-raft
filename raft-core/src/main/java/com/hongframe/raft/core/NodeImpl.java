@@ -654,6 +654,20 @@ public class NodeImpl implements Node {
         }
     }
 
+    private class LeaderFlushDoneCallback extends LogManager.FlushDoneCallback {
+        public LeaderFlushDoneCallback(List<LogEntry> entries) {
+            super(entries);
+        }
+
+        @Override
+        public void run(Status status) {
+
+            if(status.isOk()) {
+                //TODO Stable -> Ballbox.commitAt
+            }
+        }
+    }
+
     private void executeTasks(final List<LogEntrAndCallback> tasks) {
         this.writeLock.lock();
         try {
@@ -676,13 +690,7 @@ public class NodeImpl implements Node {
                 task.entry.setType(EntryType.ENTRY_TYPE_DATA);
                 entries.add(task.entry);
             }
-            this.logManager.appendEntries(entries, new LogManager.FlushDoneCallback() {
-                @Override
-                public void run(Status status) {
-                    //TODO Stable
-                }
-            });
-
+            this.logManager.appendEntries(entries, new LeaderFlushDoneCallback(entries));
         } finally {
             this.writeLock.unlock();
         }

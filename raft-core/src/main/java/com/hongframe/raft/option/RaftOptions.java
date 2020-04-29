@@ -22,6 +22,16 @@ public class RaftOptions {
 
     private int disruptorPublishEventWaitTimeoutSecs = 10;
 
+    private int maxAppendBufferSize = 256 * 1024;
+
+    public int getMaxAppendBufferSize() {
+        return maxAppendBufferSize;
+    }
+
+    public void setMaxAppendBufferSize(int maxAppendBufferSize) {
+        this.maxAppendBufferSize = maxAppendBufferSize;
+    }
+
     public int getDisruptorPublishEventWaitTimeoutSecs() {
         return disruptorPublishEventWaitTimeoutSecs;
     }

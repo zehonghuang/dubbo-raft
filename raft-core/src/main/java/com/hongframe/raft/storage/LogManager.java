@@ -23,8 +23,17 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
             this.entries = entries;
         }
 
+        public List<LogEntry> getEntries() {
+            return entries;
+        }
+
         public void setFirstLogIndex(long firstLogIndex) {
             this.firstLogIndex = firstLogIndex;
+        }
+
+        public FlushDoneCallback(final List<LogEntry> entries) {
+            super();
+            setEntries(entries);
         }
     }
 

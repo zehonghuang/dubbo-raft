@@ -1,8 +1,10 @@
 package com.hongframe.raft.storage.impl;
 
 import com.hongframe.raft.FSMCaller;
+import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.conf.ConfigurationManager;
+import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
@@ -14,13 +16,11 @@ import com.hongframe.raft.util.ArrayDeque;
 import com.hongframe.raft.util.DisruptorBuilder;
 import com.hongframe.raft.util.NamedThreadFactory;
 import com.hongframe.raft.util.SegmentList;
-import com.lmax.disruptor.EventFactory;
-import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.RingBuffer;
-import com.lmax.disruptor.TimeoutBlockingWaitStrategy;
+import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
@@ -66,10 +66,18 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
-    private static class FlushDoneCallbackEventHandler implements EventHandler<FlushDoneCallbackEvent> {
+    private class FlushDoneCallbackEventHandler implements EventHandler<FlushDoneCallbackEvent> {
+        LogId lastId = LogManagerImpl.this.diskId; //TODO flush last log index
+        List<FlushDoneCallback> storage = new ArrayList<>(256);
+        AppendBatcher batcher = new AppendBatcher(this.storage, 256, LogManagerImpl.this.diskId);
+
         @Override
         public void onEvent(FlushDoneCallbackEvent event, long sequence, boolean endOfBatch) throws Exception {
             //TODO FlushDoneCallbackEventHandler
+            FlushDoneCallback callback = event.callback;
+            if (callback.getEntries() != null && !callback.getEntries().isEmpty()) {
+                this.batcher.append(callback);
+            }
         }
     }
 
@@ -138,7 +146,18 @@ public class LogManagerImpl implements LogManager {
                 callback.setFirstLogIndex(entries.get(0).getId().getIndex());
             }
             callback.setEntries(entries);
-            //TODO flush disk
+
+            final EventTranslator<FlushDoneCallbackEvent> translator = (event, sequence) -> {
+                event.reset();
+                event.callback = callback;
+            };
+            while (true) {
+                if (this.diskQueue.tryPublishEvent(translator)) {
+                    break;
+                } else {
+                    Thread.yield();
+                }
+            }
         } finally {
             this.writeLock.unlock();
         }
@@ -147,6 +166,64 @@ public class LogManagerImpl implements LogManager {
     @Override
     public LogEntry getEntry(long index) {
         return null;
+    }
+
+    private class AppendBatcher {
+        List<FlushDoneCallback> callbacks;
+        int cap;
+        int size;
+        int bufferSize;
+        List<LogEntry> entries = new ArrayList<>();
+        LogId lastId;
+
+        public AppendBatcher(List<FlushDoneCallback> callbacks, int cap, LogId lastId) {
+            this.callbacks = callbacks;
+            this.cap = cap;
+            this.lastId = lastId;
+        }
+
+        LogId flush() {
+            if (this.size > 0) {
+                this.lastId = appendToStorage(this.entries);
+                for (FlushDoneCallback callback : callbacks) {
+                    callback.getEntries().clear();
+                    callback.run(Status.OK());
+                }
+                this.entries.clear();
+                this.callbacks.clear();
+            }
+            this.bufferSize = 0;
+            this.size = 0;
+            this.cap = 0;
+            return this.lastId;
+        }
+
+        LogId appendToStorage(List<LogEntry> entries) {
+            LogId lastId = null;
+            final int entriesCount = entries.size();
+            final int nAppent = LogManagerImpl.this.logStorage.appendEntries(entries);
+            if (entriesCount != nAppent) {
+                // TODO error
+            }
+            if (nAppent > 0) {
+                lastId = entries.get(nAppent - 1).getId();
+            }
+            entries.clear();
+            return lastId;
+        }
+
+        void append(final FlushDoneCallback callback) {
+            if (this.size == this.cap || this.bufferSize >= LogManagerImpl.this.raftOptions.getMaxAppendBufferSize()) {
+                flush();
+            }
+            this.callbacks.add(callback);
+            this.size++;
+            this.entries.addAll(callback.getEntries());
+
+            for (final LogEntry entry : callback.getEntries()) {
+                this.bufferSize += entry.getData() != null ? entry.getData().remaining() : 0;
+            }
+        }
     }
 
     private boolean checkAndResolveConflict(final List<LogEntry> entries) {
