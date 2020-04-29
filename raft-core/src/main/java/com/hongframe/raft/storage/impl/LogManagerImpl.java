@@ -58,6 +58,32 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
+    public void setDiskId(LogId diskId) {
+        if(diskId == null) {
+            return;
+        }
+        this.writeLock.lock();
+        try {
+            if(diskId.compareTo(this.diskId) <= 0) {
+                return;
+            }
+            this.diskId = diskId;
+            clearMemoryLogs(this.diskId.compareTo(this.appliedId) <= 0 ? this.diskId : this.appliedId);
+        } finally {
+            this.writeLock.unlock();
+        }
+
+    }
+
+    private void clearMemoryLogs(final LogId id) {
+        this.writeLock.lock();
+        try {
+            this.logsInMemory.removeFromFirstWhen(entry -> entry.getId().compareTo(id) <= 0);
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
+
     private static class FlushDoneCallbackEventFactory implements EventFactory<FlushDoneCallbackEvent> {
 
         @Override
@@ -77,6 +103,10 @@ public class LogManagerImpl implements LogManager {
             FlushDoneCallback callback = event.callback;
             if (callback.getEntries() != null && !callback.getEntries().isEmpty()) {
                 this.batcher.append(callback);
+            }
+            if (endOfBatch) {
+                this.lastId = this.batcher.flush();
+                setDiskId(this.lastId);
             }
         }
     }
