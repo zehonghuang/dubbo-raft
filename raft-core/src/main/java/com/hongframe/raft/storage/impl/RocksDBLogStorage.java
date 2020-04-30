@@ -9,11 +9,13 @@ import com.hongframe.raft.option.LogStorageOptions;
 import com.hongframe.raft.storage.LogStorage;
 import com.hongframe.raft.util.Bits;
 import com.hongframe.raft.util.RocksDBOptionsFactory;
+import org.apache.commons.io.FileUtils;
 import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
@@ -112,6 +114,13 @@ public class RocksDBLogStorage implements LogStorage {
         final File dir = new File(this.path);
         if (dir.exists() && !dir.isDirectory()) {
             throw new IllegalStateException("Invalid log path, it's a regular file: " + this.path);
+        }
+        if(!dir.exists()) {
+            try {
+                FileUtils.forceMkdir(dir);
+            } catch (IOException e) {
+                LOG.error("", e);
+            }
         }
         this.db = RocksDB.open(this.dbOptions, this.path, columnFamilyDescriptors, columnFamilyHandles);
 

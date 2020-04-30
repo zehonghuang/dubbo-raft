@@ -42,6 +42,7 @@ public class CounterRaftServerStartup {
 
         NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setConfig(configuration);
+        nodeOptions.setLogUri(".");
 
         RaftGroupService raftGroupService = new RaftGroupService(GROUP, serverId, nodeOptions, rpcServer);
         this.node = raftGroupService.start();

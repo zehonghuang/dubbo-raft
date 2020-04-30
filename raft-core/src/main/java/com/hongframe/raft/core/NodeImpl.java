@@ -149,7 +149,7 @@ public class NodeImpl implements Node {
             }
         };
 
-        this.logStorage = new RocksDBLogStorage(this.nodeOptions.getLogUri());
+        this.logStorage = new RocksDBLogStorage(this.nodeOptions.getLogUri() + File.separator + "raft_data" + File.separator + this.nodeId.getPeerId().getPort());
         LogStorageOptions logStorageOptions = new LogStorageOptions();
         logStorageOptions.setConfigurationManager(this.configurationManager);
         logStorageOptions.setCodecFactory(new ProtoLogEntryCodecFactory());//TODO setCodecFactory
@@ -163,7 +163,7 @@ public class NodeImpl implements Node {
         logManagerOptions.setConfigurationManager(this.configurationManager);
         this.logManager.init(logManagerOptions);
 
-        this.metaStorage = new RaftMetaStorageImpl("." + File.separator + "raft_meta:" + this.serverId.toString());
+        this.metaStorage = new RaftMetaStorageImpl(this.nodeOptions.getLogUri() + File.separator + "raft_meta" + File.separator + this.serverId.toString());
         this.currTerm = this.metaStorage.getTerm();
         this.voteId = this.metaStorage.getVotedFor().copy();
 

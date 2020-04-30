@@ -53,6 +53,7 @@ public class RaftMetaStorageImpl implements RaftMetaStorage {
         File file = new File(this.path);
         try {
             if(!file.exists()) {
+                FileUtils.forceMkdir(file.getParentFile());
                 file.createNewFile();
             }
             String t = FileUtils.readFileToString(file, Charset.defaultCharset());

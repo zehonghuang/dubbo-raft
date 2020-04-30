@@ -1,0 +1,17 @@
+syntax="proto2";
+
+
+option java_package="com.hongframe.raft.entity.codec.proto";
+option java_outer_classname = "LogOutter";
+
+message LogEntry {
+    required int32 type = 1;
+    required int64 term = 2;
+    required int64 index = 3;
+    repeated bytes peers = 4;
+    repeated bytes old_peers = 5;
+    required bytes data = 6;
+    optional int64 checksum = 7;
+    repeated bytes learners = 8;
+    repeated bytes old_learners = 9;
+};
