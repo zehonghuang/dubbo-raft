@@ -22,6 +22,7 @@ import com.lmax.disruptor.dsl.ProducerType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -51,6 +52,7 @@ public class LogManagerImpl implements LogManager {
 
     private static class FlushDoneCallbackEvent {
         FlushDoneCallback callback;
+        EventType type;
 
         //TODO 增加 event type ？
         void reset() {
@@ -58,13 +60,18 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
+    private enum EventType {
+        OTHER,
+        LAST_LOG_ID;
+    }
+
     public void setDiskId(LogId diskId) {
-        if(diskId == null) {
+        if (diskId == null) {
             return;
         }
         this.writeLock.lock();
         try {
-            if(diskId.compareTo(this.diskId) <= 0) {
+            if (diskId.compareTo(this.diskId) <= 0) {
                 return;
             }
             this.diskId = diskId;
@@ -103,6 +110,14 @@ public class LogManagerImpl implements LogManager {
             FlushDoneCallback callback = event.callback;
             if (callback.getEntries() != null && !callback.getEntries().isEmpty()) {
                 this.batcher.append(callback);
+            } else {
+                this.lastId = this.batcher.flush();
+                switch (event.type) {
+                    case LAST_LOG_ID:
+                        ((LastLogIdCallback) event.callback).setLastLogId(this.lastId);
+                        break;
+                }
+                event.callback.run(Status.OK());
             }
             if (endOfBatch) {
                 this.lastId = this.batcher.flush();
@@ -140,22 +155,94 @@ public class LogManagerImpl implements LogManager {
     }
 
     @Override
+    public long getFirstLogIndex() {
+        this.readLock.lock();
+        try {
+            return this.firstLogIndex;
+        } finally {
+            this.readLock.unlock();
+        }
+    }
+
+    private class LastLogIdCallback extends FlushDoneCallback {
+        private LogId lastLogId;
+        private CountDownLatch latch;
+
+        public LastLogIdCallback() {
+            super(null);
+            this.latch = new CountDownLatch(1);
+        }
+
+        public LogId getLastLogId() throws InterruptedException {
+            this.latch.await();
+            return lastLogId;
+        }
+
+        public void setLastLogId(LogId lastLogId) {
+            this.lastLogId = lastLogId;
+        }
+
+        @Override
+        public void run(Status status) {
+            this.latch.countDown();
+        }
+    }
+
+    @Override
     public long getLastLogIndex() {
-        return 0;
+        return getLastLogIndex(false);
     }
 
     @Override
     public long getLastLogIndex(boolean isFlush) {
-        return 0;
+        return getLastLogId(isFlush).getIndex();
     }
 
     @Override
     public LogId getLastLogId(boolean isFlush) {
-        return new LogId();
+        this.readLock.lock();
+        try {
+            if (!isFlush) {
+                return new LogId(this.lastLogIndex, getTerm(this.lastLogIndex));
+            } else {
+                LastLogIdCallback callback = new LastLogIdCallback();
+                EventTranslator<FlushDoneCallbackEvent> translator = (event, sequence) -> {
+                    event.reset();
+                    event.type = EventType.LAST_LOG_ID;
+                    event.callback = callback;
+                };
+                this.diskQueue.tryPublishEvent(translator);
+                try {
+                    return callback.getLastLogId();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+            }
+        } finally {
+            this.readLock.unlock();
+        }
     }
 
     @Override
     public long getTerm(long index) {
+        if (index == 0) {
+            return 0;
+        }
+        LogEntry entry;
+        this.writeLock.lock();
+        try {
+            entry = getEntryFromMemory(index);
+            if (entry != null) {
+                return entry.getId().getTerm();
+            }
+        } finally {
+            this.writeLock.unlock();
+        }
+        entry = this.logStorage.getEntry(index);
+        if (entry != null) {
+            return entry.getId().getTerm();
+        }
         return 0;
     }
 
@@ -180,6 +267,7 @@ public class LogManagerImpl implements LogManager {
             final EventTranslator<FlushDoneCallbackEvent> translator = (event, sequence) -> {
                 event.reset();
                 event.callback = callback;
+                event.type = EventType.OTHER;
             };
             while (true) {
                 if (this.diskQueue.tryPublishEvent(translator)) {
@@ -195,6 +283,31 @@ public class LogManagerImpl implements LogManager {
 
     @Override
     public LogEntry getEntry(long index) {
+        this.readLock.lock();
+        try {
+            if (index < this.firstLogIndex || index > this.lastLogIndex) {
+                return null;
+            }
+            LogEntry entry = getEntryFromMemory(index);
+            if (entry != null) {
+                return entry;
+            }
+        } finally {
+            this.readLock.unlock();
+        }
+        LogEntry entry = this.logStorage.getEntry(index);
+        if (entry == null) {
+            //TODO error
+        }
+        return entry;
+    }
+
+    private LogEntry getEntryFromMemory(long index) {
+        if (!logsInMemory.isEmpty()) {
+            if (index <= this.lastLogIndex && index >= this.firstLogIndex) {
+                return logsInMemory.get((int) (index - this.firstLogIndex));
+            }
+        }
         return null;
     }
 

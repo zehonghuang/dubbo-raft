@@ -101,10 +101,11 @@ public class NodeImpl implements Node {
     private class LogEntryCallbackEventHandler implements EventHandler<LogEntrAndCallback> {
 
         private final List<LogEntrAndCallback> tasks = new ArrayList<>();
+
         @Override
         public void onEvent(LogEntrAndCallback event, long sequence, boolean endOfBatch) throws Exception {
             tasks.add(event);
-            if(tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
+            if (tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
                 executeTasks(tasks);
             }
         }
@@ -193,7 +194,7 @@ public class NodeImpl implements Node {
         this.ballotBox = new BallotBox();
         this.ballotBox.init(ballotBoxOptions);
 
-        this.applyDisruptor = DisruptorBuilder.<LogEntrAndCallback> newInstance() //
+        this.applyDisruptor = DisruptorBuilder.<LogEntrAndCallback>newInstance() //
                 .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //
                 .setEventFactory(new LogEntryCallbackFactory()) //
                 .setThreadFactory(new NamedThreadFactory("Dubbo-Raft-NodeImpl-Disruptor-", true)) //
@@ -263,7 +264,7 @@ public class NodeImpl implements Node {
             LOG.info("are you grant for {} ? {}", request.getServerId(), granted);
             return response;
         } finally {
-            if(doUnlock) {
+            if (doUnlock) {
                 this.writeLock.unlock();
             }
         }
@@ -298,7 +299,7 @@ public class NodeImpl implements Node {
                 }
             }
         } finally {
-            if(doUnlock) {
+            if (doUnlock) {
                 this.writeLock.unlock();
             }
         }
@@ -318,7 +319,7 @@ public class NodeImpl implements Node {
 
             do {
                 if (request.getTerm() >= this.currTerm) {
-                    if (request.getTerm() > this.currTerm)  {
+                    if (request.getTerm() > this.currTerm) {
                         stepDown(request.getTerm(), new Status());
                     }
                 } else {
@@ -331,7 +332,7 @@ public class NodeImpl implements Node {
 
                 doUnlock = true;
                 this.writeLock.lock();
-                if(this.currTerm != request.getTerm()) {
+                if (this.currTerm != request.getTerm()) {
                     break;
                 }
                 boolean isOk = new LogId(request.getTerm(), request.getLastLogIndex()).compareTo(lastLogId) >= 0;
@@ -350,7 +351,7 @@ public class NodeImpl implements Node {
             return response;
 
         } finally {
-            if(doUnlock) {
+            if (doUnlock) {
                 this.writeLock.unlock();
             }
         }
@@ -360,19 +361,19 @@ public class NodeImpl implements Node {
         this.writeLock.lock();
 
         try {
-            if(this.state != State.STATE_CANDIDATE) {
+            if (this.state != State.STATE_CANDIDATE) {
                 return;
             }
-            if(this.currTerm != term) {
+            if (this.currTerm != term) {
                 return;
             }
             LOG.info(response.toString());
-            if(response.getTerm() > this.currTerm) {
+            if (response.getTerm() > this.currTerm) {
                 stepDown(response.getTerm(), new Status());
             }
-            if(response.getGranted()) {
+            if (response.getGranted()) {
                 this.voteCtx.grant(peerId);
-                if(this.voteCtx.isGranted()) {
+                if (this.voteCtx.isGranted()) {
                     becomeLeader();
                 }
             }
@@ -384,20 +385,20 @@ public class NodeImpl implements Node {
     public AppendEntriesResponse handleAppendEntriesRequest(final AppendEntriesRequest request) {
         this.writeLock.lock();
         try {
-            if(!this.state.isActive()) {
+            if (!this.state.isActive()) {
                 return null;
             }
             PeerId peerId = new PeerId();
-            if(!peerId.parse(request.getServerId())) {
+            if (!peerId.parse(request.getServerId())) {
                 return null;
             }
-            if(request.getTerm() < this.currTerm) {
+            if (request.getTerm() < this.currTerm) {
                 AppendEntriesResponse response = new AppendEntriesResponse();
                 response.setSuccess(false);
                 response.setTerm(this.currTerm);
                 return response;
             }
-            if(this.leaderId == null || this.leaderId.isEmpty()) {
+            if (this.leaderId == null || this.leaderId.isEmpty()) {
                 this.leaderId = peerId;
             }
 
@@ -522,7 +523,7 @@ public class NodeImpl implements Node {
                 electSelf();
             }
         } finally {
-            if(doUnlock) {
+            if (doUnlock) {
                 this.writeLock.unlock();
             }
         }
@@ -537,8 +538,8 @@ public class NodeImpl implements Node {
         LOG.info("peer {} become Leader", this.leaderId);
         this.replicatorGroup.resetTerm(this.currTerm);
         this.ballotBox.resetPendingIndex(logManager.getLastLogIndex() + 1);
-        for(PeerId peerId : this.conf.getConf().getPeers()) {
-            if(peerId.equals(this.serverId)) {
+        for (PeerId peerId : this.conf.getConf().getPeers()) {
+            if (peerId.equals(this.serverId)) {
                 continue;
             }
             this.replicatorGroup.addReplicator(peerId);
@@ -643,12 +644,12 @@ public class NodeImpl implements Node {
         LogEntry entry = new LogEntry();
         entry.setData(task.getData());
 
-        final EventTranslator<LogEntrAndCallback>  translator = (event, seq) -> {
+        final EventTranslator<LogEntrAndCallback> translator = (event, seq) -> {
             event.callback = task.getCallback();
             event.entry = entry;
         };
         while (true) {
-            if(this.applyQueue.tryPublishEvent(translator)) {
+            if (this.applyQueue.tryPublishEvent(translator)) {
                 break;
             }
         }
@@ -662,8 +663,9 @@ public class NodeImpl implements Node {
         @Override
         public void run(Status status) {
 
-            if(status.isOk()) {
-                //TODO Stable -> Ballbox.commitAt
+            if (status.isOk()) {
+                NodeImpl.this.ballotBox.commitAt(this.firstLogIndex, this.firstLogIndex + this.nEntries - 1,
+                        NodeImpl.this.serverId);
             }
         }
     }
@@ -671,19 +673,19 @@ public class NodeImpl implements Node {
     private void executeTasks(final List<LogEntrAndCallback> tasks) {
         this.writeLock.lock();
         try {
-            if(this.state != State.STATE_LEADER) {
+            if (this.state != State.STATE_LEADER) {
                 Status status = new Status(10001, "");
                 Utils.runInThread(() -> {
-                   for(LogEntrAndCallback callback : tasks) {
-                       callback.callback.run(status);
-                   }
+                    for (LogEntrAndCallback callback : tasks) {
+                        callback.callback.run(status);
+                    }
                 });
                 return;
             }
             List<LogEntry> entries = new ArrayList<>(tasks.size());
-            for(LogEntrAndCallback task : tasks) {
+            for (LogEntrAndCallback task : tasks) {
                 //TODO executeTasks
-                if(!this.ballotBox.appendPendingTask(this.conf.getConf(), null, task.callback)) {
+                if (!this.ballotBox.appendPendingTask(this.conf.getConf(), null, task.callback)) {
                     continue;
                 }
                 task.entry.getId().setTerm(this.currTerm);

@@ -37,6 +37,8 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
         }
     }
 
+    long getFirstLogIndex();
+
     long getLastLogIndex();
 
     long getLastLogIndex(final boolean isFlush);
