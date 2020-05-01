@@ -104,9 +104,11 @@ public class NodeImpl implements Node {
 
         @Override
         public void onEvent(LogEntrAndCallback event, long sequence, boolean endOfBatch) throws Exception {
+            LOG.info("apply -> LogEntryCallbackEventHandler.onEvent");
             tasks.add(event);
             if (tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
                 executeTasks(tasks);
+                this.tasks.clear();
             }
         }
     }
@@ -647,6 +649,7 @@ public class NodeImpl implements Node {
         final EventTranslator<LogEntrAndCallback> translator = (event, seq) -> {
             event.callback = task.getCallback();
             event.entry = entry;
+            LOG.info("Task -> LogEntrAndCallback");
         };
         while (true) {
             if (this.applyQueue.tryPublishEvent(translator)) {
@@ -662,7 +665,7 @@ public class NodeImpl implements Node {
 
         @Override
         public void run(Status status) {
-
+            LOG.info("executeTasks -> LeaderFlushDoneCallback: {}", this.nEntries);
             if (status.isOk()) {
                 NodeImpl.this.ballotBox.commitAt(this.firstLogIndex, this.firstLogIndex + this.nEntries - 1,
                         NodeImpl.this.serverId);
@@ -671,6 +674,7 @@ public class NodeImpl implements Node {
     }
 
     private void executeTasks(final List<LogEntrAndCallback> tasks) {
+        LOG.info("onEvent -> executeTasks");
         this.writeLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
@@ -692,6 +696,7 @@ public class NodeImpl implements Node {
                 task.entry.setType(EntryType.ENTRY_TYPE_DATA);
                 entries.add(task.entry);
             }
+            LOG.info("how much entries: {}", entries.size());
             this.logManager.appendEntries(entries, new LeaderFlushDoneCallback(entries));
         } finally {
             this.writeLock.unlock();

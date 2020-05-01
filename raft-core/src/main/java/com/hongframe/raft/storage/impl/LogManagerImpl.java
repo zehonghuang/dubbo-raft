@@ -4,6 +4,7 @@ import com.hongframe.raft.FSMCaller;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.conf.ConfigurationManager;
+import com.hongframe.raft.core.BallotBox;
 import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
@@ -19,6 +20,8 @@ import com.hongframe.raft.util.SegmentList;
 import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +36,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * create time: 2020-04-17 19:16
  */
 public class LogManagerImpl implements LogManager {
+
+    private static final Logger LOG = LoggerFactory.getLogger(LogManagerImpl.class);
 
     private RaftOptions raftOptions;
     private LogStorage logStorage;
@@ -248,6 +253,7 @@ public class LogManagerImpl implements LogManager {
 
     @Override
     public void appendEntries(List<LogEntry> entries, FlushDoneCallback callback) {
+        LOG.info("executeTasks -> appendEntries");
         this.writeLock.lock();
         try {
             if (!entries.isEmpty() && !checkAndResolveConflict(entries)) {
@@ -327,6 +333,7 @@ public class LogManagerImpl implements LogManager {
 
         LogId flush() {
             if (this.size > 0) {
+                LOG.info("flush first: {}, lastId:{}", this.entries.get(0).getId().getIndex(), this.entries.get(0).getId().getIndex() + this.entries.size() - 1);
                 this.lastId = appendToStorage(this.entries);
                 for (FlushDoneCallback callback : callbacks) {
                     callback.getEntries().clear();
@@ -374,6 +381,7 @@ public class LogManagerImpl implements LogManager {
         if (first.getId().getIndex() == 0) {
             for (LogEntry entry : entries) {
                 entry.getId().setIndex(++this.lastLogIndex);
+                LOG.info("new entry log id: {}", entry.getId());
             }
             return true;
         }

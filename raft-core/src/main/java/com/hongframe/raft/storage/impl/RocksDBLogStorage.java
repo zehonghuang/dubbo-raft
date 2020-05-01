@@ -115,7 +115,7 @@ public class RocksDBLogStorage implements LogStorage {
         if (dir.exists() && !dir.isDirectory()) {
             throw new IllegalStateException("Invalid log path, it's a regular file: " + this.path);
         }
-        if(!dir.exists()) {
+        if (!dir.exists()) {
             try {
                 FileUtils.forceMkdir(dir);
             } catch (IOException e) {
@@ -144,7 +144,7 @@ public class RocksDBLogStorage implements LogStorage {
             this.db.close();
             this.confHandle.close();
             this.defaultHandle.close();
-            for(ColumnFamilyOptions options : this.cfOpts) {
+            for (ColumnFamilyOptions options : this.cfOpts) {
                 options.close();
             }
             this.dbOptions.close();
@@ -162,7 +162,7 @@ public class RocksDBLogStorage implements LogStorage {
 
             RocksIterator iterator = this.db.newIterator(this.defaultHandle, this.readOptions);
             iterator.seekToFirst();
-            if(iterator.isValid()) {
+            if (iterator.isValid()) {
                 long index = Bits.getLong(iterator.key(), 0);
                 setFirstLogIndex(index);
                 return index;
@@ -184,7 +184,7 @@ public class RocksDBLogStorage implements LogStorage {
         try {
             RocksIterator iterator = this.db.newIterator(this.defaultHandle, this.readOptions);
             iterator.seekToLast();
-            if(iterator.isValid()) {
+            if (iterator.isValid()) {
                 return Bits.getLong(iterator.key(), 0);
             }
         } finally {
@@ -202,9 +202,9 @@ public class RocksDBLogStorage implements LogStorage {
             }
             byte[] k = getKeyBytes(index);
             byte[] v = this.db.get(this.defaultHandle, k);
-            if(v != null) {
+            if (v != null) {
                 LogEntry entry = this.decoder.decode(v);
-                if(entry == null) {
+                if (entry == null) {
                     LOG.warn("log entry is null");
                     return null;
                 }
@@ -253,8 +253,25 @@ public class RocksDBLogStorage implements LogStorage {
             return 0;
         }
         int len = entries.size();
-        //TODO 批量操作
-        return 0;
+        this.readLock.lock();
+        try {
+            WriteBatch batch = new WriteBatch();
+            for (int i = 0; i < len; i++) {
+                final LogEntry entry = entries.get(i);
+                long logIndex = entry.getId().getIndex();
+                byte[] k = getKeyBytes(logIndex);
+                byte[] v = this.encoder.encode(entry);
+                batch.put(this.defaultHandle, k, v);
+                LOG.info("batch log entry {index : {}}", entry.getId().toString());
+            }
+            this.db.write(this.writeOptions, batch);
+        } catch (final RocksDBException e) {
+            LOG.error("Execute batch failed with rocksdb exception.", e);
+            return 0;
+        } finally {
+            this.readLock.unlock();
+        }
+        return len;
     }
 
     protected byte[] getKeyBytes(final long index) {

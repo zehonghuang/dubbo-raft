@@ -9,6 +9,7 @@ import com.hongframe.raft.entity.codec.LogEntryDecoder;
 import com.hongframe.raft.util.AsciiStringUtil;
 import com.hongframe.raft.util.Utils;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,6 +48,11 @@ public class ProtoLogEntryDecoder implements LogEntryDecoder {
                 }
                 log.setOldPeers(peers);
             }
+            final ByteString data = lle.getData();
+            if (!data.isEmpty()) {
+                log.setData(ByteBuffer.wrap(data.toByteArray()));
+            }
+
 
 //            if (lle.getLearnersCount() > 0) {
 //                final List<PeerId> peers = new ArrayList<>(lle.getLearnersCount());

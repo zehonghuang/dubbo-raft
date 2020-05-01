@@ -11,8 +11,8 @@
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 .idea/
-.raft_data/
-.raft_meta/
+raft_data/
+raft_meta/
 
 # Package Files #
 *.jar

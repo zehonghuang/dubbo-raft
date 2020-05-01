@@ -21,7 +21,7 @@ public class CounterRaftServerStartup {
 
     private static final Logger LOG = LoggerFactory.getLogger(CounterRaftServerStartup.class);
 
-    public static final String NODES = "localhost:8888,localhost:8889,localhost:8890,localhost:8891,localhost:8892";
+    public static final String NODES = "localhost:8888,localhost:8889,localhost:8890";
 
     public static final String GROUP = "raft";
 

@@ -10,6 +10,7 @@ import org.apache.dubbo.rpc.RpcContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -42,6 +43,7 @@ public class CounterServiceImpl implements CounterService {
                 asyncContext.write(new Response<>(new ValueResponse(v, true)));
             }
         });
+        task.setData(ByteBuffer.allocate(32).putInt(value.get()));
         startup.getNode().apply(task);
 
         return null;

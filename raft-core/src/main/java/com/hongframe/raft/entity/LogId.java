@@ -83,4 +83,12 @@ public class LogId implements Comparable<LogId>, Copiable<LogId>, Serializable {
     public void setIndex(long index) {
         this.index = index;
     }
+
+    @Override
+    public String toString() {
+        return "LogId{" +
+                "term=" + term +
+                ", index=" + index +
+                '}';
+    }
 }

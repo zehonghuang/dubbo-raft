@@ -21,6 +21,11 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
 
         public void setEntries(List<LogEntry> entries) {
             this.entries = entries;
+            if (entries != null) {
+                this.nEntries = entries.size();
+            } else {
+                this.nEntries = 0;
+            }
         }
 
         public List<LogEntry> getEntries() {
