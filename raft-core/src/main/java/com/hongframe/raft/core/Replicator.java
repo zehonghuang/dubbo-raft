@@ -10,6 +10,7 @@ import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -19,11 +20,14 @@ public class Replicator {
 
     private RpcClient rpcClient;
     private volatile long nextIndex = 1;
+    private State state;
     private ObjectLock<Replicator> self;
     private final ReplicatorOptions options;
     private Scheduler timerManger;
     private volatile long lastRpcSendTimestamp;
     private volatile long heartbeatCounter = 0;
+    private int reqSeq = 0;
+    private int requiredNextSeq = 0;
 
     private ScheduledFuture<?> heartbeatTimer;
 
@@ -33,6 +37,31 @@ public class Replicator {
         this.timerManger = this.options.getTimerManager();
 
     }
+
+    public enum State {
+        Probe,
+        Replicate,
+        Destroyed;
+    }
+
+    private int getAndIncrementReqSeq() {
+        final int prev = this.reqSeq;
+        this.reqSeq++;
+        if (this.reqSeq < 0) {
+            this.reqSeq = 0;
+        }
+        return prev;
+    }
+
+    private int getAndIncrementRequiredNextSeq() {
+        final int prev = this.requiredNextSeq;
+        this.requiredNextSeq++;
+        if (this.requiredNextSeq < 0) {
+            this.requiredNextSeq = 0;
+        }
+        return prev;
+    }
+
 
     public static ObjectLock<Replicator> start(ReplicatorOptions options) {
         Replicator replicator = new Replicator(options);
@@ -77,7 +106,7 @@ public class Replicator {
             request.setServerId(this.options.getServerId().toString());
             request.setPeerId(this.options.getPeerId().toString());
             request.setPrevLogTerm(prevLogTerm);
-            request.setPreLogIndex(prevLogTerm);
+            request.setPreLogIndex(this.nextIndex - 1);
             request.setCommittedIndex(0l);
 
             final long monotonicSendTimeMs = Utils.monotonicMs();
@@ -89,6 +118,15 @@ public class Replicator {
                         onHeartbeatReturned(status, (AppendEntriesResponse) getResponse(), monotonicSendTimeMs);
                     }
                 });
+            } else {
+                this.state = State.Probe;
+                int reqSeq = getAndIncrementReqSeq();
+                CompletableFuture<?> future = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
+                    @Override
+                    public void run(Status status) {
+                        //TODO appendEntries response
+                    }
+                });
             }
         } finally {
             this.self.unlock();
@@ -96,7 +134,7 @@ public class Replicator {
     }
 
     private void onHeartbeatReturned(Status status, AppendEntriesResponse response, long monotonicSendTimeMs) {
-        if(!status.isOk()) {
+        if (!status.isOk()) {
             //TODO block
             LOG.warn("onHeartbeatReturned {}", status.getErrorMsg());
         }
