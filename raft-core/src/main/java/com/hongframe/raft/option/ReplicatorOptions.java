@@ -1,5 +1,6 @@
 package com.hongframe.raft.option;
 
+import com.hongframe.raft.core.BallotBox;
 import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.core.Scheduler;
 import com.hongframe.raft.entity.PeerId;
@@ -17,6 +18,7 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     private LogManager logManager;
     private NodeImpl node;
     private long term;
+    private BallotBox ballotBox;
     private RpcClient rpcClient;
     private Scheduler timerManager;
 
@@ -25,7 +27,7 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
 
     public ReplicatorOptions(int dynamicHeartBeatTimeoutMs, int electionTimeoutMs, String groupId, PeerId serverId,
                              PeerId peerId, LogManager logManager, NodeImpl node, long term, RpcClient rpcClient,
-                             Scheduler timerManager) {
+                             Scheduler timerManager, BallotBox ballotBox) {
         this.dynamicHeartBeatTimeoutMs = dynamicHeartBeatTimeoutMs;
         this.electionTimeoutMs = electionTimeoutMs;
         this.groupId = groupId;
@@ -41,7 +43,7 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     @Override
     public ReplicatorOptions copy() {
         return new ReplicatorOptions(this.dynamicHeartBeatTimeoutMs, this.electionTimeoutMs, this.groupId, this.serverId,
-                this.peerId, this.logManager, this.node, this.term, this.rpcClient, this.timerManager);
+                this.peerId, this.logManager, this.node, this.term, this.rpcClient, this.timerManager, this.ballotBox);
     }
 
     public Scheduler getTimerManager() {
@@ -122,5 +124,13 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
 
     public void setRpcClient(RpcClient rpcClient) {
         this.rpcClient = rpcClient;
+    }
+
+    public BallotBox getBallotBox() {
+        return ballotBox;
+    }
+
+    public void setBallotBox(BallotBox ballotBox) {
+        this.ballotBox = ballotBox;
     }
 }

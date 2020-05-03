@@ -1,5 +1,6 @@
 package com.hongframe.raft.option;
 
+import com.hongframe.raft.core.BallotBox;
 import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.core.Scheduler;
 import com.hongframe.raft.rpc.RpcClient;
@@ -13,6 +14,15 @@ public class ReplicatorGroupOptions {
     private NodeImpl node;
     private RpcClient rpcClient;
     private Scheduler timerManager;
+    private BallotBox ballotBox;
+
+    public BallotBox getBallotBox() {
+        return ballotBox;
+    }
+
+    public void setBallotBox(BallotBox ballotBox) {
+        this.ballotBox = ballotBox;
+    }
 
     public Scheduler getTimerManager() {
         return timerManager;

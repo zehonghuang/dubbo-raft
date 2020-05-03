@@ -107,7 +107,7 @@ public class Replicator {
             request.setPeerId(this.options.getPeerId().toString());
             request.setPrevLogTerm(prevLogTerm);
             request.setPreLogIndex(this.nextIndex - 1);
-            request.setCommittedIndex(0l);
+            request.setCommittedIndex(this.options.getBallotBox().getLastCommittedIndex());
 
             final long monotonicSendTimeMs = Utils.monotonicMs();
 

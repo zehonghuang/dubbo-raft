@@ -1,15 +1,12 @@
 package com.hongframe.raft.core;
 
 import com.hongframe.raft.*;
-import com.hongframe.raft.callback.CallbackQueue;
-import com.hongframe.raft.callback.CallbackQueueImpl;
+import com.hongframe.raft.callback.*;
 import com.hongframe.raft.conf.ConfigurationEntry;
 import com.hongframe.raft.conf.ConfigurationManager;
 import com.hongframe.raft.entity.*;
 import com.hongframe.raft.entity.codec.proto.ProtoLogEntryCodecFactory;
 import com.hongframe.raft.option.*;
-import com.hongframe.raft.callback.Callback;
-import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.LogStorage;
@@ -178,6 +175,7 @@ public class NodeImpl implements Node {
         rgo.setNode(this);
         rgo.setRpcClient(this.rpcClient);
         rgo.setTimerManager(this.timerManger);
+        rgo.setBallotBox(this.ballotBox);
         this.replicatorGroup.init(this.nodeId.copy(), rgo);
 
         this.callbackQueue = new CallbackQueueImpl();
@@ -384,7 +382,7 @@ public class NodeImpl implements Node {
         }
     }
 
-    public AppendEntriesResponse handleAppendEntriesRequest(final AppendEntriesRequest request) {
+    public AppendEntriesResponse handleAppendEntriesRequest(final AppendEntriesRequest request, RequestCallback callback) {
         this.writeLock.lock();
         try {
             if (!this.state.isActive()) {

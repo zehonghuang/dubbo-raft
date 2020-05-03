@@ -41,6 +41,15 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
         return false;
     }
 
+    public long getLastCommittedIndex() {
+        this.readLock.lock();
+        try {
+            return lastCommittedIndex;
+        } finally {
+            this.readLock.unlock();
+        }
+    }
+
     public void clearPendingTasks() {
         this.writeLock.lock();
         try {
