@@ -8,6 +8,7 @@
 - 完成选举闭环，且冒烟通过，还需更多的测试
 - 日志复制
     - ✅ ~~完成Leader日志落地~~
+    - ✅ ~~完成Pipeline优化~~
 - 增加计时器示例
 - 增加disruptor处理client发送的任务
     - ⁉️调研百度的bthread，看是否能用java实现，替代disruptor，原因是后者无法做event之间通信调度
