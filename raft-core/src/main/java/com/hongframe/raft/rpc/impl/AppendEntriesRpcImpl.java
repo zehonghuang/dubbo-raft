@@ -24,15 +24,17 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
     class SequenceMessage implements Comparable<SequenceMessage> {
         private final int sequence;
         private final AsyncContext asyncContext;
+        private final Message message;
 
-        public SequenceMessage(int sequence, AsyncContext asyncContext) {
+        public SequenceMessage(int sequence, Message message, AsyncContext asyncContext) {
             this.sequence = sequence;
+            this.message = message;
             this.asyncContext = asyncContext;
         }
 
-        public void sendResponse(final Message msg) {
+        public void sendResponse() {
             asyncContext.signalContextSwitch();
-            asyncContext.write(msg);
+            asyncContext.write(message);
         }
 
         @Override
@@ -47,11 +49,16 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
         private int sequence;
         private int nextRequiredSequence;
         private final PriorityQueue<SequenceMessage> responseQueue;
+        private final static int MAX_PENDING_RESPONSES = 256;
 
         private SequenceRequestContext(String groupId, String peerId) {
             this.groupId = groupId;
             this.peerId = peerId;
             this.responseQueue = new PriorityQueue<>(50);
+        }
+
+        boolean hasTooManyPendingResponses() {
+            return this.responseQueue.size() > MAX_PENDING_RESPONSES;
         }
 
         int getAndIncreSequence() {
@@ -126,6 +133,29 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
         @Override
         public void sendResponse(final Message msg) {
             SequenceRequestContext seqCtx = getSequenceRequestContext(this.groupId, this.peerId);
+            final PriorityQueue<SequenceMessage> respQueue = seqCtx.responseQueue;
+            synchronized (respQueue) {
+                respQueue.add(new SequenceMessage(this.reqSeq, msg, asyncContext));
+
+                if (!seqCtx.hasTooManyPendingResponses()) {
+                    while (!respQueue.isEmpty()) {
+                        final SequenceMessage queuedResponse = respQueue.peek();
+
+                        if (queuedResponse.sequence != seqCtx.getNextRequiredSequence()) {
+                            break;
+                        }
+
+                        respQueue.remove();
+                        try {
+                            queuedResponse.sendResponse();
+                        } finally {
+                            seqCtx.getAndIncreRequiredSequence();
+                        }
+                    }
+                } else {
+                    //TODO error
+                }
+            }
         }
     }
 
@@ -135,7 +165,6 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
 
         SequenceRequestContext context = getSequenceRequestContext(request.getGroupId(), request.getPeerId());
         int seq = context.getAndIncreSequence();
-        SequenceMessage seqMsg = new SequenceMessage(seq, asyncContext);
 
         Message message = getNode(request).handleAppendEntriesRequest(request,
                 new SequenceRequestCallback(request.getGroupId(), request.getPeerId(), seq, asyncContext));
