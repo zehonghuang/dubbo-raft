@@ -382,15 +382,17 @@ public class NodeImpl implements Node {
         }
     }
 
-    public AppendEntriesResponse handleAppendEntriesRequest(final AppendEntriesRequest request, RequestCallback callback) {
+    public Message handleAppendEntriesRequest(final AppendEntriesRequest request, RequestCallback callback) {
+        boolean doUnlock = true;
         this.writeLock.lock();
+        final int entriesCount = request.getEntriesCount();
         try {
             if (!this.state.isActive()) {
-                return null;
+                return new ErrorResponse(10001, "node not active");
             }
             PeerId peerId = new PeerId();
             if (!peerId.parse(request.getServerId())) {
-                return null;
+                return new ErrorResponse(10001, "server parse fail");
             }
             if (request.getTerm() < this.currTerm) {
                 AppendEntriesResponse response = new AppendEntriesResponse();
@@ -403,8 +405,32 @@ public class NodeImpl implements Node {
             }
 
             updateLastLeaderTimestamp(Utils.monotonicMs());
+
+            long reqPrevIndex = request.getPreLogIndex();
+            long reqPrevTerm = request.getPrevLogTerm();
+            long localPervTerm = this.logManager.getTerm(reqPrevIndex);
+            if(reqPrevTerm != localPervTerm) {
+                AppendEntriesResponse response = new AppendEntriesResponse();
+                response.setSuccess(false);
+                response.setTerm(this.currTerm);
+                response.setLastLogLast(this.logManager.getLastLogIndex());
+                return response;
+            }
+
+            if (entriesCount == 0) {
+                AppendEntriesResponse response = new AppendEntriesResponse();
+                response.setSuccess(true);
+                response.setTerm(this.currTerm);
+                response.setLastLogLast(this.logManager.getLastLogIndex());
+                doUnlock = false;
+                this.writeLock.unlock();
+                //TODO commit
+                return response;
+            }
         } finally {
-            this.writeLock.unlock();
+            if(doUnlock) {
+                this.writeLock.unlock();
+            }
         }
         return null;
     }

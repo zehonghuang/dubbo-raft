@@ -168,6 +168,10 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
 
         Message message = getNode(request).handleAppendEntriesRequest(request,
                 new SequenceRequestCallback(request.getGroupId(), request.getPeerId(), seq, asyncContext));
+        if (message == null) {
+            return null;
+        }
+        asyncContext.stop();
         return checkResponse(message);
     }
 

@@ -115,7 +115,7 @@ public class Replicator {
                 this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {
-                        onHeartbeatReturned(status, (AppendEntriesResponse) getResponse(), monotonicSendTimeMs);
+                        onHeartbeatReturned(Replicator.this.self, status, (AppendEntriesResponse) getResponse(), monotonicSendTimeMs);
                     }
                 });
             } else {
@@ -125,6 +125,7 @@ public class Replicator {
                     @Override
                     public void run(Status status) {
                         //TODO appendEntries response
+                        onAppendEntriesReturned(Replicator.this.self, status, (AppendEntriesResponse) getResponse(), monotonicSendTimeMs);
                     }
                 });
             }
@@ -133,12 +134,42 @@ public class Replicator {
         }
     }
 
-    private void onHeartbeatReturned(Status status, AppendEntriesResponse response, long monotonicSendTimeMs) {
-        if (!status.isOk()) {
-            //TODO block
-            LOG.warn("onHeartbeatReturned {}", status.getErrorMsg());
+    private void onHeartbeatReturned(ObjectLock<Replicator> lock, Status status, AppendEntriesResponse response, long monotonicSendTimeMs) {
+
+        boolean doUnlock = true;
+        final long startTimeMs = Utils.nowMs();
+        Replicator replicator = lock.lock();
+
+        try {
+            if (!status.isOk()) {
+                LOG.warn("onHeartbeatReturned {}", status.getErrorMsg());
+                replicator.startHeartbeatTimer(startTimeMs);
+                return;
+            }
+            if (response.getTerm() > replicator.options.getTerm()) {
+                //TODO down step
+                return;
+            }
+            if (!response.getSuccess() && !(response.getLastLogLast() < 0)) {
+                doUnlock = false;
+                replicator.sendEmptyEntries(false);
+                replicator.startHeartbeatTimer(startTimeMs);
+                return;
+            }
+            if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
+                replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
+            }
+            replicator.startHeartbeatTimer(startTimeMs);
+        } finally {
+            if (doUnlock) {
+                lock.unlock();
+            }
+
         }
-        onTimeout(this.self);
+    }
+
+    private void onAppendEntriesReturned(ObjectLock<Replicator> lock, Status status, AppendEntriesResponse response, long monotonicSendTimeMs) {
+
     }
 
 }

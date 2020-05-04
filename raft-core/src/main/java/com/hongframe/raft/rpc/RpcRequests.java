@@ -1,9 +1,12 @@
 package com.hongframe.raft.rpc;
 
+import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 import com.hongframe.raft.rpc.core.MembershipChangeRpc;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
+
+import java.util.List;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -258,10 +261,8 @@ public class RpcRequests {
         private Long term;
         private Long prevLogTerm;
         private Long preLogIndex;
-        //TODO private EntryMeta entries;
+        private List<LogEntry> entries;
         private Long committedIndex;
-        //TODO privete byte[] data;
-
 
         @Override
         public String toString() {
@@ -272,8 +273,21 @@ public class RpcRequests {
                     ", term=" + term +
                     ", prevLogTerm=" + prevLogTerm +
                     ", preLogIndex=" + preLogIndex +
+                    ", entries=" + entries +
                     ", committedIndex=" + committedIndex +
                     '}';
+        }
+
+        public List<LogEntry> getEntries() {
+            return entries;
+        }
+
+        public void setEntries(List<LogEntry> entries) {
+            this.entries = entries;
+        }
+
+        public int getEntriesCount() {
+            return entries.size();
         }
 
         public String getGroupId() {
