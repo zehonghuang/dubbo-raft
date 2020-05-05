@@ -21,13 +21,14 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     private BallotBox ballotBox;
     private RpcClient rpcClient;
     private Scheduler timerManager;
+    private RaftOptions raftOptions;
 
     public ReplicatorOptions() {
     }
 
     public ReplicatorOptions(int dynamicHeartBeatTimeoutMs, int electionTimeoutMs, String groupId, PeerId serverId,
                              PeerId peerId, LogManager logManager, NodeImpl node, long term, RpcClient rpcClient,
-                             Scheduler timerManager, BallotBox ballotBox) {
+                             Scheduler timerManager, BallotBox ballotBox, RaftOptions raftOptions) {
         this.dynamicHeartBeatTimeoutMs = dynamicHeartBeatTimeoutMs;
         this.electionTimeoutMs = electionTimeoutMs;
         this.groupId = groupId;
@@ -38,12 +39,22 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
         this.term = term;
         this.rpcClient = rpcClient;
         this.timerManager = timerManager;
+        this.ballotBox = ballotBox;
+        this.raftOptions = raftOptions;
     }
 
     @Override
     public ReplicatorOptions copy() {
         return new ReplicatorOptions(this.dynamicHeartBeatTimeoutMs, this.electionTimeoutMs, this.groupId, this.serverId,
-                this.peerId, this.logManager, this.node, this.term, this.rpcClient, this.timerManager, this.ballotBox);
+                this.peerId, this.logManager, this.node, this.term, this.rpcClient, this.timerManager, this.ballotBox, this.raftOptions);
+    }
+
+    public RaftOptions getRaftOptions() {
+        return raftOptions;
+    }
+
+    public void setRaftOptions(RaftOptions raftOptions) {
+        this.raftOptions = raftOptions;
     }
 
     public Scheduler getTimerManager() {

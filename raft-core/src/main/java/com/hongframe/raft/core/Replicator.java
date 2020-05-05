@@ -1,6 +1,7 @@
 package com.hongframe.raft.core;
 
 import com.hongframe.raft.Status;
+import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.option.ReplicatorOptions;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
@@ -10,6 +11,8 @@ import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayDeque;
+import java.util.PriorityQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -26,10 +29,13 @@ public class Replicator {
     private Scheduler timerManger;
     private volatile long lastRpcSendTimestamp;
     private volatile long heartbeatCounter = 0;
+
+    private FlyingAppendEntries fiying;
+    private ArrayDeque<FlyingAppendEntries> appendEntriesInFly;
+    private ScheduledFuture<?> heartbeatTimer;
     private int reqSeq = 0;
     private int requiredNextSeq = 0;
-
-    private ScheduledFuture<?> heartbeatTimer;
+    private final PriorityQueue<RpcResponse> pendingResponses = new PriorityQueue<>(50);
 
     private Replicator(ReplicatorOptions options) {
         this.options = options;
@@ -42,6 +48,45 @@ public class Replicator {
         Probe,
         Replicate,
         Destroyed;
+    }
+
+    private class FlyingAppendEntries {
+        final long startLogIndex;
+        final int entriesSize;
+        final int seq;
+        final CompletableFuture<?> future;
+
+        public FlyingAppendEntries(long startLogIndex, int entriesSize, int seq, CompletableFuture<?> future) {
+            this.startLogIndex = startLogIndex;
+            this.entriesSize = entriesSize;
+            this.seq = seq;
+            this.future = future;
+        }
+
+        boolean isSendingLogEntries() {
+            return this.entriesSize > 0;
+        }
+    }
+
+    private class RpcResponse implements Comparable<RpcResponse> {
+        final Status status;
+        final Message request;
+        final Message response;
+        final long rpcSendTime;
+        final int seq;
+
+        private RpcResponse(Status status, Message request, Message response, long rpcSendTime, int seq) {
+            this.status = status;
+            this.request = request;
+            this.response = response;
+            this.rpcSendTime = rpcSendTime;
+            this.seq = seq;
+        }
+
+        @Override
+        public int compareTo(RpcResponse o) {
+            return Integer.compare(this.seq, o.seq);
+        }
     }
 
     private int getAndIncrementReqSeq() {
@@ -60,6 +105,10 @@ public class Replicator {
             this.requiredNextSeq = 0;
         }
         return prev;
+    }
+
+    private FlyingAppendEntries pollInFly() {
+        return this.appendEntriesInFly.poll();
     }
 
 
@@ -125,7 +174,7 @@ public class Replicator {
                     @Override
                     public void run(Status status) {
                         //TODO appendEntries response
-                        onAppendEntriesReturned(Replicator.this.self, status, (AppendEntriesResponse) getResponse(), monotonicSendTimeMs);
+                        onAppendEntriesReturned(Replicator.this.self, status, request, (AppendEntriesResponse) getResponse(), reqSeq, monotonicSendTimeMs);
                     }
                 });
             }
@@ -168,8 +217,64 @@ public class Replicator {
         }
     }
 
-    private void onAppendEntriesReturned(ObjectLock<Replicator> lock, Status status, AppendEntriesResponse response, long monotonicSendTimeMs) {
+    private void onAppendEntriesReturned(ObjectLock<Replicator> lock, Status status, AppendEntriesRequest request,
+                                         AppendEntriesResponse response, int seq, long monotonicSendTimeMs) {
+        Replicator replicator = lock.lock();
 
+        try {
+            final PriorityQueue<RpcResponse> holdingQueue = replicator.pendingResponses;
+            holdingQueue.add(new RpcResponse(status, request, response, monotonicSendTimeMs, seq));
+            if (holdingQueue.size() > this.options.getRaftOptions().getMaxReplicatorFlyingMsgs()) {
+                replicator.sendEmptyEntries(false);
+                return;
+            }
+
+            int processed = 0;
+            while (!holdingQueue.isEmpty()) {
+                RpcResponse rpcResponse = holdingQueue.peek();
+
+                if (rpcResponse.seq != replicator.requiredNextSeq) {
+                    if (processed > 0) {
+                        break;
+                    }
+//                    lock.unlock();
+                    return;
+                }
+
+                holdingQueue.remove();
+                processed++;
+                FlyingAppendEntries flying = replicator.pollInFly();
+                if (flying == null) {
+                    continue;
+                }
+                if(flying.seq != rpcResponse.seq) {
+                    //TODO 不知道什么情况下会这样
+                }
+
+                try {
+                    request = (AppendEntriesRequest) rpcResponse.request;
+                    response = (AppendEntriesResponse) rpcResponse.response;
+                    if (flying.startLogIndex != request.getPreLogIndex() + 1) {
+                        //TODO
+                    }
+
+                    if(!status.isOk()) {
+                        //TODO block
+                    }
+
+                    if(!response.getSuccess()) {
+
+                    }
+                } finally {
+                    //TODO
+                    replicator.getAndIncrementRequiredNextSeq();
+                }
+
+            }
+
+        } finally {
+            lock.unlock();
+        }
     }
 
 }

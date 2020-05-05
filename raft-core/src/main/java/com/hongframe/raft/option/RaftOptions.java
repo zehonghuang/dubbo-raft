@@ -24,6 +24,8 @@ public class RaftOptions {
 
     private int maxAppendBufferSize = 256 * 1024;
 
+    private int maxReplicatorFlyingMsgs = 256;
+
     public int getMaxAppendBufferSize() {
         return maxAppendBufferSize;
     }
@@ -94,5 +96,13 @@ public class RaftOptions {
 
     public void setElectionHeartbeatFactor(int electionHeartbeatFactor) {
         this.electionHeartbeatFactor = electionHeartbeatFactor;
+    }
+
+    public int getMaxReplicatorFlyingMsgs() {
+        return maxReplicatorFlyingMsgs;
+    }
+
+    public void setMaxReplicatorFlyingMsgs(int maxReplicatorFlyingMsgs) {
+        this.maxReplicatorFlyingMsgs = maxReplicatorFlyingMsgs;
     }
 }
