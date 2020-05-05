@@ -221,6 +221,7 @@ public class Replicator {
                                          AppendEntriesResponse response, int seq, long monotonicSendTimeMs) {
         Replicator replicator = lock.lock();
 
+        boolean continueSendEntries = true;
         try {
             final PriorityQueue<RpcResponse> holdingQueue = replicator.pendingResponses;
             holdingQueue.add(new RpcResponse(status, request, response, monotonicSendTimeMs, seq));
@@ -237,6 +238,7 @@ public class Replicator {
                     if (processed > 0) {
                         break;
                     }
+                    continueSendEntries = false;
 //                    lock.unlock();
                     return;
                 }
@@ -247,8 +249,8 @@ public class Replicator {
                 if (flying == null) {
                     continue;
                 }
-                if(flying.seq != rpcResponse.seq) {
-                    //TODO 不知道什么情况下会这样
+                if (flying.seq != rpcResponse.seq) {
+                    //TODO 不知道什么情况下会这样 and block
                 }
 
                 try {
@@ -256,25 +258,77 @@ public class Replicator {
                     response = (AppendEntriesResponse) rpcResponse.response;
                     if (flying.startLogIndex != request.getPreLogIndex() + 1) {
                         //TODO
+                        continueSendEntries = false;
+                        break;
                     }
 
-                    if(!status.isOk()) {
+                    if (!status.isOk()) {
                         //TODO block
+                        continueSendEntries = false;
+                        break;
                     }
 
-                    if(!response.getSuccess()) {
+                    if (!response.getSuccess()) {
+                        if (response.getTerm() > replicator.options.getTerm()) {
+                            //TODO dowm step
+                            continueSendEntries = false;
+                            break;
+                        }
+                        if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
+                            replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
+                        }
+                        //TODO appendEntriesInFly clear
 
+                        if (response.getLastLogLast() + 1 < replicator.nextIndex) {
+                            replicator.nextIndex = response.getLastLogLast() + 1;
+                        } else {
+                            if (replicator.nextIndex > 1) {
+                                replicator.nextIndex--;
+                            }
+                        }
+                        replicator.sendEmptyEntries(false);
+                        continueSendEntries = false;
+                        break;
                     }
+
+                    if (response.getTerm() != replicator.options.getTerm()) {
+                        //TODO appendEntriesInFly clear
+                        continueSendEntries = false;
+                        break;
+                    }
+
+                    if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
+                        replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
+                    }
+                    if (request.getEntriesCount() > 0) {
+                        replicator.options.getBallotBox().commitAt(replicator.nextIndex,
+                                replicator.nextIndex + request.getEntriesCount() - 1, replicator.options.getPeerId());
+                    } else {
+                        replicator.state = State.Replicate;
+                    }
+                    replicator.nextIndex += request.getEntriesCount();
+                    continueSendEntries = true;
                 } finally {
                     //TODO
-                    replicator.getAndIncrementRequiredNextSeq();
+                    if (continueSendEntries) {
+                        replicator.getAndIncrementRequiredNextSeq();
+                    }
                 }
 
             }
 
         } finally {
-            lock.unlock();
+
+            if (continueSendEntries) {
+                // TODO send entries
+            } else {
+                lock.unlock();
+            }
         }
+    }
+
+    private void sendEntries() {
+
     }
 
 }
