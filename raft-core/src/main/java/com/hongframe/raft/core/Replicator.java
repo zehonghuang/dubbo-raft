@@ -180,6 +180,7 @@ public class Replicator {
                         onAppendEntriesReturned(Replicator.this.self, status, request, (AppendEntriesResponse) getResponse(), reqSeq, monotonicSendTimeMs);
                     }
                 });
+                addFlying(0, 0, reqSeq, future);
             }
         } finally {
             this.self.unlock();

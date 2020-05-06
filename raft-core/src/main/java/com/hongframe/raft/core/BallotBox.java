@@ -115,6 +115,11 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
         return true;
     }
 
+    public boolean setLastCommittedIndex(final long lastCommittedIndex) {
+        //TODO setLastCommittedIndex
+        return false;
+    }
+
     public boolean appendPendingTask(final Configuration conf, final Configuration oldConf, final Callback callback) {
         LOG.info("executeTasks -> appendPendingTask");
         final Ballot bl = new Ballot();

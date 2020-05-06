@@ -382,6 +382,47 @@ public class NodeImpl implements Node {
         }
     }
 
+    private class FollowerFlushDoneCallback extends LogManager.FlushDoneCallback {
+
+        private final RequestCallback callback;
+        private final long term;
+        private final long committedIndex;
+        private final NodeImpl node;
+
+        public FollowerFlushDoneCallback(List<LogEntry> entries, RequestCallback callback, AppendEntriesRequest request, long term, NodeImpl node) {
+            super(entries);
+            this.callback = callback;
+            this.term = term;
+            this.node = node;
+            this.committedIndex = Math.min(request.getCommittedIndex(), request.getPreLogIndex() + request.getEntriesCount());
+        }
+
+        @Override
+        public void run(Status status) {
+            if (!status.isOk()) {
+                this.callback.run(status);
+                return;
+            }
+            AppendEntriesResponse response = new AppendEntriesResponse();
+            this.node.readLock.lock();
+            try {
+                if (this.term != this.node.currTerm) {
+                    response.setSuccess(false);
+                    response.setTerm(this.node.currTerm);
+                    callback.sendResponse(response);
+                    return;
+                }
+            } finally {
+                this.node.readLock.unlock();
+            }
+
+            response.setSuccess(true);
+            response.setTerm(this.node.currTerm);
+            this.node.ballotBox.setLastCommittedIndex(this.committedIndex);
+            callback.sendResponse(response);
+        }
+    }
+
     public Message handleAppendEntriesRequest(final AppendEntriesRequest request, RequestCallback callback) {
         boolean doUnlock = true;
         this.writeLock.lock();
@@ -409,7 +450,7 @@ public class NodeImpl implements Node {
             long reqPrevIndex = request.getPreLogIndex();
             long reqPrevTerm = request.getPrevLogTerm();
             long localPervTerm = this.logManager.getTerm(reqPrevIndex);
-            if(reqPrevTerm != localPervTerm) {
+            if (reqPrevTerm != localPervTerm) {
                 AppendEntriesResponse response = new AppendEntriesResponse();
                 response.setSuccess(false);
                 response.setTerm(this.currTerm);
@@ -424,11 +465,22 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 doUnlock = false;
                 this.writeLock.unlock();
-                //TODO commit
+
+                this.ballotBox.setLastCommittedIndex(request.getCommittedIndex());
                 return response;
             }
+
+
+            List<LogEntry> entries = new ArrayList<>(entriesCount);
+            List<LogEntry> requestEntries = request.getEntries();
+
+            for (int i = 0; i < entriesCount; i++) {
+                //TODO check sum
+                entries.add(requestEntries.get(0));
+            }
+            this.logManager.appendEntries(entries, new FollowerFlushDoneCallback(entries, callback, request, this.currTerm, this));
         } finally {
-            if(doUnlock) {
+            if (doUnlock) {
                 this.writeLock.unlock();
             }
         }
