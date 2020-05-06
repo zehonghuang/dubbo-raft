@@ -1,6 +1,7 @@
 package com.hongframe.raft.core;
 
 import com.hongframe.raft.Status;
+import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.option.ReplicatorOptions;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
@@ -12,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
@@ -31,7 +34,7 @@ public class Replicator {
     private volatile long heartbeatCounter = 0;
 
     private FlyingAppendEntries fiying;
-    private ArrayDeque<FlyingAppendEntries> appendEntriesInFly;
+    private ArrayDeque<FlyingAppendEntries> appendEntriesInFly = new ArrayDeque<>();
     private ScheduledFuture<?> heartbeatTimer;
     private int reqSeq = 0;
     private int requiredNextSeq = 0;
@@ -321,14 +324,91 @@ public class Replicator {
 
             if (continueSendEntries) {
                 // TODO send entries
+                replicator.sendEntries();
             } else {
                 lock.unlock();
             }
         }
     }
 
-    private void sendEntries() {
+    private void addFlying(long startLogIndex, int entriesSize, int seq, CompletableFuture future) {
+        this.fiying = new FlyingAppendEntries(startLogIndex, entriesSize, seq, future);
+        this.appendEntriesInFly.add(fiying);
+    }
 
+    private int getNextSendIndex() {
+        if (this.appendEntriesInFly.isEmpty()) {
+            return -1;
+        }
+        if (this.appendEntriesInFly.size() > this.options.getRaftOptions().getMaxReplicatorFlyingMsgs()) {
+            return -1;
+        }
+        if (this.fiying != null && this.fiying.isSendingLogEntries()) {
+            return (int) this.fiying.startLogIndex + this.fiying.entriesSize;
+        }
+        return -1;
+    }
+
+    private void sendEntries() {
+        long prevSendIndex = -1;
+        while (true) {
+            long nextSendIndex = getNextSendIndex();
+            if (nextSendIndex > prevSendIndex) {
+                if (sendEntries(nextSendIndex)) {
+                    prevSendIndex = nextSendIndex;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+
+        }
+    }
+
+    private boolean sendEntries(final long nextSendingIndex) {
+        AppendEntriesRequest request = new AppendEntriesRequest();
+        request.setTerm(this.options.getTerm());
+        request.setServerId(this.options.getServerId().toString());
+        request.setGroupId(this.options.getGroupId());
+        request.setPeerId(this.options.getPeerId().toString());
+        request.setPreLogIndex(nextSendingIndex - 1);
+        request.setPrevLogTerm(this.options.getLogManager().getTerm(nextSendingIndex - 1));
+        request.setCommittedIndex(this.options.getBallotBox().getLastCommittedIndex());
+
+        final int maxEntriesSize = this.options.getRaftOptions().getMaxEntriesSize();
+        List<LogEntry> entries = new LinkedList<>();
+        for (int i = 0; i < maxEntriesSize; i++) {
+            if (!prepareEntry(nextSendingIndex, i, entries)) {
+                break;
+            }
+        }
+        if (entries.isEmpty()) {
+            //TODO wait more entries
+            return false;
+        }
+        request.setEntries(entries);
+        //TODO send request
+        final long monotonicSendTimeMs = Utils.monotonicMs();
+        final int seq = getAndIncrementReqSeq();
+        CompletableFuture future = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
+            @Override
+            public void run(Status status) {
+                onAppendEntriesReturned(Replicator.this.self, status, request, (AppendEntriesResponse) getResponse(), seq, monotonicSendTimeMs);
+            }
+        });
+        addFlying(nextSendingIndex, entries.size(), seq, future);
+        return true;
+    }
+
+    private boolean prepareEntry(long nextSendIndex, int offset, List<LogEntry> entries) {
+        long logIndex = nextSendIndex + offset;
+        LogEntry entry = this.options.getLogManager().getEntry(logIndex);
+        if (entry == null) {
+            return false;
+        }
+        entries.add(entry);
+        return true;
     }
 
 }
