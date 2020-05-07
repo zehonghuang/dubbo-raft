@@ -19,6 +19,7 @@ public class FSMCallerOptions {
     private LogId bootstrapId;
     private CallbackQueue callbackQueue;
     private NodeImpl node;
+    private int disruptorBufferSize = 1024;
 
     public LogManager getLogManager() {
         return logManager;
@@ -66,5 +67,13 @@ public class FSMCallerOptions {
 
     public void setNode(NodeImpl node) {
         this.node = node;
+    }
+
+    public int getDisruptorBufferSize() {
+        return disruptorBufferSize;
+    }
+
+    public void setDisruptorBufferSize(int disruptorBufferSize) {
+        this.disruptorBufferSize = disruptorBufferSize;
     }
 }

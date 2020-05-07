@@ -116,8 +116,28 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
     }
 
     public boolean setLastCommittedIndex(final long lastCommittedIndex) {
-        //TODO setLastCommittedIndex
-        return false;
+        boolean doUnlock = true;
+        this.writeLock.lock();
+        try {
+            // 只有leader才满足这个条件
+            if (this.pendingIndex != 0 || !this.pendingMetaQueue.isEmpty()) {
+                return false;
+            }
+            if (lastCommittedIndex < this.lastCommittedIndex) {
+                return false;
+            }
+            if (lastCommittedIndex > this.lastCommittedIndex) {
+                this.lastCommittedIndex = lastCommittedIndex;
+                this.writeLock.unlock();
+                doUnlock = false;
+                this.caller.onCommitted(lastCommittedIndex);
+            }
+        } finally {
+            if (doUnlock) {
+                this.writeLock.unlock();
+            }
+        }
+        return true;
     }
 
     public boolean appendPendingTask(final Configuration conf, final Configuration oldConf, final Callback callback) {
