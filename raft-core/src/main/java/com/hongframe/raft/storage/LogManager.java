@@ -50,6 +50,8 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
 
     LogId getLastLogId(final boolean isFlush);
 
+    void setAppliedId(final LogId appliedId);
+
     long getTerm(final long index);
 
     void appendEntries(final List<LogEntry> entries, FlushDoneCallback callback);

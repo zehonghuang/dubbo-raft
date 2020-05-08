@@ -87,6 +87,8 @@ public class LogManagerImpl implements LogManager {
 
     }
 
+
+
     private void clearMemoryLogs(final LogId id) {
         this.writeLock.lock();
         try {
@@ -226,6 +228,25 @@ public class LogManagerImpl implements LogManager {
             }
         } finally {
             this.readLock.unlock();
+        }
+    }
+
+    @Override
+    public void setAppliedId(LogId appliedId) {
+        LogId clearId;
+        this.writeLock.lock();
+        try {
+            if(appliedId.compareTo(this.appliedId) < 0) {
+                return;
+            }
+            this.appliedId = appliedId.copy();
+            clearId = this.diskId.compareTo(this.appliedId) <= 0 ? this.diskId : this.appliedId;
+        } finally {
+            this.writeLock.unlock();
+        }
+
+        if (clearId != null) {
+            clearMemoryLogs(clearId);
         }
     }
 

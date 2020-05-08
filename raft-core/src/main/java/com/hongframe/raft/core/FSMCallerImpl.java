@@ -4,6 +4,9 @@ import com.hongframe.raft.FSMCaller;
 import com.hongframe.raft.StateMachine;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.CallbackQueue;
+import com.hongframe.raft.entity.EntryType;
+import com.hongframe.raft.entity.LogEntry;
+import com.hongframe.raft.entity.LogId;
 import com.hongframe.raft.option.FSMCallerOptions;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.util.DisruptorBuilder;
@@ -124,6 +127,31 @@ public class FSMCallerImpl implements FSMCaller {
         final List<Callback> callbacks = new ArrayList<>();
         long firstIndex = this.callbackQueue.popClosureUntil(committedIndex, callbacks);
         //TODO doCommitted
+        final IteratorImpl iterator = new IteratorImpl(this.stateMachine, this.logManager, callbacks, firstIndex,
+                committedIndex, this.applyingIndex, this.lastAppliedIndex.get());
+        while (iterator.isGood()) {
+            final LogEntry logEntry = iterator.entry();
+            if (logEntry.getType() == EntryType.ENTRY_TYPE_CONFIGURATION) {
+                //TODO ENTRY_TYPE_CONFIGURATION
+            } else {
+                doApplyTasks(iterator);
+            }
+        }
+        final long lastIndex = iterator.getIndex() - 1;
+        final long lastTerm = this.logManager.getTerm(lastIndex);
+        final LogId lastAppliedId = new LogId(lastIndex, lastTerm);
+        this.lastAppliedIndex.set(lastIndex);
+        this.lastAppliedTerm = lastTerm;
+        this.logManager.setAppliedId(lastAppliedId);
+    }
+
+    private void doApplyTasks(final IteratorImpl iterator) {
+        final IteratorWrapper iter = new IteratorWrapper(iterator);
+        this.stateMachine.onApply(iter);
+        if(iter.hasNext()) {
+            //TODO error
+        }
+        iter.next();
     }
 
     @Override
