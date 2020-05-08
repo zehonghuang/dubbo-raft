@@ -622,7 +622,8 @@ public class NodeImpl implements Node {
             }
             this.replicatorGroup.addReplicator(peerId);
         }
-
+        //TODO 这是要去掉的，非法操作
+        this.nodeOptions.getStateMachine().onLeaderStart(this.currTerm);
     }
 
     private void stepDown(final long term, final Status status) {

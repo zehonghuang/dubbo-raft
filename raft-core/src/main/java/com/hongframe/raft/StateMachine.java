@@ -10,7 +10,7 @@ public interface StateMachine {
 
     void onShutdown();
 
-    void onLeaderStart(Status status);
+    void onLeaderStart(final long term);
 
     void onLeaderStop(Status status);
 

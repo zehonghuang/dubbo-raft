@@ -1,6 +1,7 @@
 package com.hongframe.raft.counter.rpc;
 
 import com.hongframe.raft.Status;
+import com.hongframe.raft.counter.CounterCallback;
 import com.hongframe.raft.counter.CounterRaftServerStartup;
 import com.hongframe.raft.entity.Task;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
@@ -33,14 +34,13 @@ public class CounterServiceImpl implements CounterService {
     @Override
     public Response<ValueResponse> incrementAndGet(IncrementAndGetRequest request) {
         final AsyncContext asyncContext = RpcContext.startAsync();
+
+        CounterCallback counterCallback = new CounterCallback(asyncContext);
         Task task = new Task();
         task.setCallback(new ResponseCallbackAdapter() {
             @Override
             public void run(Status status) {
-                asyncContext.signalContextSwitch();
-                int v = value.addAndGet(request.getValue());
-                LOG.info("value : {}", v);
-                asyncContext.write(new Response<>(new ValueResponse(v, true)));
+
             }
         });
         task.setData(ByteBuffer.allocate(32).putInt(value.get()));

@@ -8,7 +8,7 @@ import com.hongframe.raft.entity.Message;
  */
 public class ValueResponse implements Message {
 
-    private int value;
+    private long value;
     private boolean success;
 
     public ValueResponse(int value, boolean success) {
@@ -27,11 +27,11 @@ public class ValueResponse implements Message {
     public ValueResponse() {
     }
 
-    public int getValue() {
+    public long getValue() {
         return value;
     }
 
-    public void setValue(int value) {
+    public void setValue(long value) {
         this.value = value;
     }
 

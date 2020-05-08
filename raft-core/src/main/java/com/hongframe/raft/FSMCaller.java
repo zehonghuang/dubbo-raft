@@ -10,5 +10,9 @@ public interface FSMCaller extends Lifecycle<FSMCallerOptions> {
 
     boolean onCommitted(final long committedIndex);
 
+    boolean onLeaderStop(final Status status);
+
+    boolean onLeaderStart(final long term);
+
 
 }

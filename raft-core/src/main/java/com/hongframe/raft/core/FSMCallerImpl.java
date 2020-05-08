@@ -2,6 +2,7 @@ package com.hongframe.raft.core;
 
 import com.hongframe.raft.FSMCaller;
 import com.hongframe.raft.StateMachine;
+import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.CallbackQueue;
 import com.hongframe.raft.entity.EntryType;
@@ -152,6 +153,16 @@ public class FSMCallerImpl implements FSMCaller {
             //TODO error
         }
         iter.next();
+    }
+
+    @Override
+    public boolean onLeaderStop(Status status) {
+        return false;
+    }
+
+    @Override
+    public boolean onLeaderStart(long term) {
+        return false;
     }
 
     @Override
