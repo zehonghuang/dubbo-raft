@@ -8,6 +8,8 @@ import com.hongframe.raft.rpc.RpcRequests.*;
 import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 import org.apache.dubbo.rpc.AsyncContext;
 import org.apache.dubbo.rpc.RpcContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,6 +20,8 @@ import java.util.concurrent.ConcurrentMap;
  * @version create time: 2020-04-16 16:52
  */
 public class AppendEntriesRpcImpl implements AppendEntriesRpc {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AppendEntriesRpcImpl.class);
 
     private final ConcurrentMap<String, ConcurrentMap<String, SequenceRequestContext>> seqRequestContexts = new ConcurrentHashMap<>();
 
@@ -55,6 +59,7 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
             this.groupId = groupId;
             this.peerId = peerId;
             this.responseQueue = new PriorityQueue<>(50);
+            LOG.info("Create {}", toString());
         }
 
         boolean hasTooManyPendingResponses() {
@@ -81,6 +86,16 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
                 this.nextRequiredSequence = 0;
             }
             return prev;
+        }
+
+        @Override
+        public String toString() {
+            return "SequenceRequestContext{" +
+                    "groupId='" + groupId + '\'' +
+                    ", peerId='" + peerId + '\'' +
+                    ", sequence=" + sequence +
+                    ", nextRequiredSequence=" + nextRequiredSequence +
+                    '}';
         }
     }
 
@@ -120,6 +135,7 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
             this.peerId = peerId;
             this.reqSeq = reqSeq;
             this.asyncContext = asyncContext;
+            LOG.info("Create {}", toString());
         }
 
         @Override
@@ -157,12 +173,21 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
                 }
             }
         }
+
+        @Override
+        public String toString() {
+            return "SequenceRequestCallback{" +
+                    "groupId='" + groupId + '\'' +
+                    ", peerId='" + peerId + '\'' +
+                    ", reqSeq=" + reqSeq +
+                    '}';
+        }
     }
 
     @Override
     public Response<AppendEntriesResponse> appendEntries(AppendEntriesRequest request) {
         final AsyncContext asyncContext = RpcContext.startAsync();
-
+        LOG.info("receive request");
         SequenceRequestContext context = getSequenceRequestContext(request.getGroupId(), request.getPeerId());
         int seq = context.getAndIncreSequence();
 

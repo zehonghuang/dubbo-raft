@@ -16,6 +16,8 @@ import com.hongframe.raft.util.NamedThreadFactory;
 import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * create time: 2020-04-27 20:04
  */
 public class FSMCallerImpl implements FSMCaller {
+
+    private static final Logger LOG = LoggerFactory.getLogger(FSMCallerImpl.class);
 
     private StateMachine stateMachine;
     private LogManager logManager;
@@ -101,6 +105,7 @@ public class FSMCallerImpl implements FSMCaller {
 
     @Override
     public boolean onCommitted(long committedIndex) {
+        LOG.info("committed index: {}", committedIndex);
         EventTranslator<CallerTask> tpl = (task, sequence) -> {
             task.committedIndex = committedIndex;
             task.type = TaskType.COMMITTED;
@@ -112,6 +117,7 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     private long runApplyTask(final CallerTask task, long maxCommittedIndex, final boolean endOfBatch) {
+        LOG.info("max commited index: {}, end of batch:{}", maxCommittedIndex, endOfBatch);
         if (task.type == TaskType.COMMITTED) {
             if (task.committedIndex > maxCommittedIndex) {
                 maxCommittedIndex = task.committedIndex;

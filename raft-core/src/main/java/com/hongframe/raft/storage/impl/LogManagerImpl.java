@@ -2,10 +2,7 @@ package com.hongframe.raft.storage.impl;
 
 import com.hongframe.raft.FSMCaller;
 import com.hongframe.raft.Status;
-import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.conf.ConfigurationManager;
-import com.hongframe.raft.core.BallotBox;
-import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
@@ -13,10 +10,7 @@ import com.hongframe.raft.option.LogManagerOptions;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.LogStorage;
-import com.hongframe.raft.util.ArrayDeque;
-import com.hongframe.raft.util.DisruptorBuilder;
-import com.hongframe.raft.util.NamedThreadFactory;
-import com.hongframe.raft.util.SegmentList;
+import com.hongframe.raft.util.*;
 import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
@@ -86,7 +80,6 @@ public class LogManagerImpl implements LogManager {
         }
 
     }
-
 
 
     private void clearMemoryLogs(final LogId id) {
@@ -236,7 +229,7 @@ public class LogManagerImpl implements LogManager {
         LogId clearId;
         this.writeLock.lock();
         try {
-            if(appliedId.compareTo(this.appliedId) < 0) {
+            if (appliedId.compareTo(this.appliedId) < 0) {
                 return;
             }
             this.appliedId = appliedId.copy();
@@ -277,7 +270,7 @@ public class LogManagerImpl implements LogManager {
         LOG.info("executeTasks -> appendEntries");
         this.writeLock.lock();
         try {
-            if (!entries.isEmpty() && !checkAndResolveConflict(entries)) {
+            if (!entries.isEmpty() && !checkAndResolveConflict(entries, callback)) {
                 return;
             }
             for (final LogEntry entry : entries) {
@@ -397,7 +390,7 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
-    private boolean checkAndResolveConflict(final List<LogEntry> entries) {
+    private boolean checkAndResolveConflict(final List<LogEntry> entries, FlushDoneCallback doneCallback) {
         final LogEntry first = ArrayDeque.peekFirst(entries);
         if (first.getId().getIndex() == 0) {
             for (LogEntry entry : entries) {
@@ -405,8 +398,26 @@ public class LogManagerImpl implements LogManager {
                 LOG.info("new entry log id: {}", entry.getId());
             }
             return true;
+        } else {
+            if (first.getId().getIndex() > this.lastLogIndex + 1) {
+                Utils.runInThread(() -> {
+                    doneCallback.run(new Status(10001, ""));
+                });
+                return false;
+            }
+            long appliedIndex = this.appliedId.getIndex();
+            LogEntry lastLogEntry = ArrayDeque.peekLast(entries);
+            if (lastLogEntry.getId().getIndex() <= appliedIndex) {
+                return false;
+            }
+
+            if (first.getId().getIndex() == this.lastLogIndex + 1) {
+                this.lastLogIndex = lastLogEntry.getId().getIndex();
+            } else {
+
+            }
         }
-        return false;
+        return true;
     }
 
     @Override

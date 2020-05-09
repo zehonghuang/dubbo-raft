@@ -17,9 +17,9 @@ public class CounterStateMachine implements StateMachine {
 
     private static final Logger LOG = LoggerFactory.getLogger(CounterStateMachine.class);
 
-    private final AtomicLong value      = new AtomicLong(0);
+    private final AtomicLong value = new AtomicLong(0);
 
-    private final AtomicLong    leaderTerm = new AtomicLong(-1);
+    private final AtomicLong leaderTerm = new AtomicLong(-1);
 
     public boolean isLeader() {
         return this.leaderTerm.get() > 0;
@@ -27,7 +27,7 @@ public class CounterStateMachine implements StateMachine {
 
     @Override
     public void onApply(Iterator iterator) {
-        if(!isLeader()) {
+        if (!isLeader()) {
             try {
                 Thread.sleep(3000);
             } catch (InterruptedException e) {
@@ -37,13 +37,13 @@ public class CounterStateMachine implements StateMachine {
 
         CounterCallback callback = null;
         while (iterator.hasNext()) {
-            if(iterator.callback() != null) {
+            if (iterator.callback() != null) {
                 callback = (CounterCallback) iterator.callback();
             }
             final ByteBuffer data = iterator.data();
             value.set(data.getLong());
 
-            if(callback != null) {
+            if (callback != null) {
                 callback.success(value.get());
                 callback.run(Status.OK());
             }

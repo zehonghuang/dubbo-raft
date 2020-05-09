@@ -69,6 +69,16 @@ public class Replicator {
         boolean isSendingLogEntries() {
             return this.entriesSize > 0;
         }
+
+        @Override
+        public String toString() {
+            return "FlyingAppendEntries{" +
+                    "startLogIndex=" + startLogIndex +
+                    ", entriesSize=" + entriesSize +
+                    ", seq=" + seq +
+                    ", future=" + future +
+                    '}';
+        }
     }
 
     private class RpcResponse implements Comparable<RpcResponse> {
@@ -127,7 +137,7 @@ public class Replicator {
         lock.lock();
         replicator.lastRpcSendTimestamp = Utils.monotonicMs();
         replicator.startHeartbeatTimer(Utils.nowMs());
-        lock.unlock();
+        replicator.sendEmptyEntries(false);
         return lock;
     }
 
@@ -173,6 +183,7 @@ public class Replicator {
             } else {
                 this.state = State.Probe;
                 int reqSeq = getAndIncrementReqSeq();
+                LOG.info("send probe request, seq is {}", reqSeq);
                 CompletableFuture<?> future = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {
@@ -224,12 +235,15 @@ public class Replicator {
     private void onAppendEntriesReturned(ObjectLock<Replicator> lock, Status status, AppendEntriesRequest request,
                                          AppendEntriesResponse response, int seq, long monotonicSendTimeMs) {
         Replicator replicator = lock.lock();
-
+        LOG.info("replicator state is {}", this.state);
         boolean continueSendEntries = true;
         try {
             final PriorityQueue<RpcResponse> holdingQueue = replicator.pendingResponses;
             holdingQueue.add(new RpcResponse(status, request, response, monotonicSendTimeMs, seq));
+            LOG.info("pendingResponses size: {}", holdingQueue.size());
             if (holdingQueue.size() > this.options.getRaftOptions().getMaxReplicatorFlyingMsgs()) {
+                LOG.info("pendingResponses size: {} more than Max Replicator Flying Msgs: {}", holdingQueue.size(),
+                        this.options.getRaftOptions().getMaxReplicatorFlyingMsgs());
                 replicator.sendEmptyEntries(false);
                 return;
             }
@@ -239,6 +253,7 @@ public class Replicator {
                 RpcResponse rpcResponse = holdingQueue.peek();
 
                 if (rpcResponse.seq != replicator.requiredNextSeq) {
+                    LOG.info("request seq illegal : seq {}, required {}", rpcResponse.seq, replicator.requiredNextSeq);
                     if (processed > 0) {
                         break;
                     }
@@ -253,6 +268,7 @@ public class Replicator {
                 if (flying == null) {
                     continue;
                 }
+                LOG.info(flying.toString());//TODO flying LOG
                 if (flying.seq != rpcResponse.seq) {
                     //TODO 不知道什么情况下会这样 and block
                 }
@@ -260,8 +276,17 @@ public class Replicator {
                 try {
                     request = (AppendEntriesRequest) rpcResponse.request;
                     response = (AppendEntriesResponse) rpcResponse.response;
+
+                    LOG.info("curr term: {}, request seq {} [prev index: {}, prev term: {}, curr term: {}, entries size: {}]" +
+                                    "\nresponse[term: {}, success?: {}, lastLogLast: {}]" +
+                                    "\nflying[startLogIndex: {}]", this.options.getTerm(), seq,
+                            request.getPreLogIndex(), request.getPrevLogTerm(), request.getTerm(), request.getEntriesCount(),
+                            response.getTerm(), response.getSuccess(), response.getLastLogLast(),
+                            flying.startLogIndex);
+
                     if (flying.startLogIndex != request.getPreLogIndex() + 1) {
                         //TODO
+                        LOG.warn("flying.startLogIndex != request.getPreLogIndex() + 1");
                         continueSendEntries = false;
                         break;
                     }

@@ -123,6 +123,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
             if (this.pendingIndex != 0 || !this.pendingMetaQueue.isEmpty()) {
                 return false;
             }
+            LOG.info("last committed index: {} and this.last committed index: {}", lastCommittedIndex, this.lastCommittedIndex);
             if (lastCommittedIndex < this.lastCommittedIndex) {
                 return false;
             }

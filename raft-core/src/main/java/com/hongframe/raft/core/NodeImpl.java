@@ -411,6 +411,8 @@ public class NodeImpl implements Node {
                 this.callback.run(status);
                 return;
             }
+
+            LOG.info("FollowerFlushDoneCallback[term: {}, node curr term: {}]", this.term, this.node.currTerm);
             AppendEntriesResponse response = new AppendEntriesResponse();
             this.node.readLock.lock();
             try {
@@ -458,6 +460,9 @@ public class NodeImpl implements Node {
             long reqPrevIndex = request.getPreLogIndex();
             long reqPrevTerm = request.getPrevLogTerm();
             long localPervTerm = this.logManager.getTerm(reqPrevIndex);
+            LOG.info("[prev index: {}, prev log term: {}, last committed index, local perv term: {}, entries count: {}]",
+                    reqPrevIndex, reqPrevTerm, request.getCommittedIndex(), localPervTerm, entriesCount);
+
             if (reqPrevTerm != localPervTerm) {
                 AppendEntriesResponse response = new AppendEntriesResponse();
                 response.setSuccess(false);
