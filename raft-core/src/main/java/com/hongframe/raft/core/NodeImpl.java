@@ -2,6 +2,7 @@ package com.hongframe.raft.core;
 
 import com.hongframe.raft.*;
 import com.hongframe.raft.callback.*;
+import com.hongframe.raft.conf.Configuration;
 import com.hongframe.raft.conf.ConfigurationEntry;
 import com.hongframe.raft.conf.ConfigurationManager;
 import com.hongframe.raft.entity.*;
@@ -64,6 +65,7 @@ public class NodeImpl implements Node {
 
     private ReentrantTimer voteTimer;
     private ReentrantTimer electionTimer;
+    private ReentrantTimer stepDownTimer;
     private Scheduler timerManger;
     private Disruptor<LogEntrAndCallback> applyDisruptor;
     private RingBuffer<LogEntrAndCallback> applyQueue;
@@ -145,6 +147,12 @@ public class NodeImpl implements Node {
             @Override
             protected int adjustTimeout(int timeoutMs) {
                 return randomTimeout(timeoutMs);
+            }
+        };
+        this.stepDownTimer = new ReentrantTimer("Dubbo-raft-StepDownTimer", this.nodeOptions.getElectionTimeoutMs() >> 1) {
+            @Override
+            protected void onTrigger() {
+                handleStepDownTimeout();
             }
         };
 
@@ -624,6 +632,52 @@ public class NodeImpl implements Node {
         }
         //TODO 这是要去掉的，非法操作
         this.nodeOptions.getStateMachine().onLeaderStart(this.currTerm);
+
+        this.stepDownTimer.start();
+    }
+
+    private void handleStepDownTimeout() {
+        this.writeLock.lock();
+        try {
+            long monotonicNowMs = Utils.monotonicMs();
+            checkDeadNodes(this.conf.getConf(), monotonicNowMs);
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
+
+    private void checkDeadNodes(final Configuration conf, final long monotonicNowMs) {
+        List<PeerId> peerIds = conf.getPeers();
+        if (checkDeadNodes0(peerIds, monotonicNowMs)) {
+            return;
+        }
+        stepDown(this.currTerm, new Status());
+
+    }
+
+    private boolean checkDeadNodes0(final List<PeerId> peers, final long monotonicNowMs) {
+        final int leaderLeaseTimeoutMs = this.nodeOptions.getLeaderLeaseTimeoutMs();
+        int aliveCount = 0;
+        long startLease = Long.MAX_VALUE;
+        for (PeerId peerId : peers) {
+            if (peerId.equals(this.serverId)) {
+                aliveCount++;
+                continue;
+            }
+            final long lastRpcSendTimestamp = this.replicatorGroup.getLastRpcSendTimestamp(peerId);
+            if (monotonicNowMs - lastRpcSendTimestamp <= leaderLeaseTimeoutMs) {
+                aliveCount++;
+                if (startLease > lastRpcSendTimestamp) {
+                    startLease = lastRpcSendTimestamp;
+                }
+                continue;
+            }
+        }
+        if (aliveCount >= peers.size() / 2 + 1) {
+            updateLastLeaderTimestamp(startLease);
+            return true;
+        }
+        return false;
     }
 
     private void stepDown(final long term, final Status status) {

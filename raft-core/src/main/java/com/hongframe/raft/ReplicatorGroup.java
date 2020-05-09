@@ -14,6 +14,8 @@ public interface ReplicatorGroup {
 
     boolean resetTerm(final long newTerm);
 
+    long getLastRpcSendTimestamp(final PeerId peer);
+
     ObjectLock<Replicator> getReplicator(final PeerId peerId);
 
     boolean stopReplicator(final PeerId peer);

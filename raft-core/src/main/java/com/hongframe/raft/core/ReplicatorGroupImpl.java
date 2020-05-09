@@ -57,6 +57,15 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
     }
 
     @Override
+    public long getLastRpcSendTimestamp(PeerId peer) {
+        final ObjectLock<Replicator> objectLock = this.replicatorMap.get(peer);
+        if (objectLock == null) {
+            return 0L;
+        }
+        return Replicator.getLastRpcSendTimestamp(objectLock);
+    }
+
+    @Override
     public ObjectLock<Replicator> getReplicator(PeerId peerId) {
         return null;
     }

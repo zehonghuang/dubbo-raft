@@ -412,4 +412,12 @@ public class Replicator {
         return true;
     }
 
+    public static long getLastRpcSendTimestamp(final ObjectLock<Replicator> lock) {
+        final Replicator r = lock.getData();
+        if (r == null) {
+            return 0L;
+        }
+        return r.lastRpcSendTimestamp;
+    }
+
 }

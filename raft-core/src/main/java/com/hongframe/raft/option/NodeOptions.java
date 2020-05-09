@@ -11,6 +11,8 @@ public class NodeOptions {
 
     private int electionTimeoutMs = 1000;
 
+    private int leaderLeaseTimeRatio = 90;
+
     private RaftOptions raftOptions = new RaftOptions();
 
     private Configuration config;
@@ -20,6 +22,22 @@ public class NodeOptions {
     private String logUri;
 
     private String raftMetaUri;
+
+    public int getLeaderLeaseTimeRatio() {
+        return leaderLeaseTimeRatio;
+    }
+
+    public void setLeaderLeaseTimeRatio(int leaderLeaseTimeRatio) {
+        if (leaderLeaseTimeRatio > 100 || leaderLeaseTimeRatio <= 0) {
+            throw new IllegalArgumentException("leaderLeaseTimeRatio: " + leaderLeaseTimeRatio
+                    + " (expected: 0 < leaderLeaseTimeRatio <= 100)");
+        }
+        this.leaderLeaseTimeRatio = leaderLeaseTimeRatio;
+    }
+
+    public int getLeaderLeaseTimeoutMs() {
+        return this.electionTimeoutMs * this.leaderLeaseTimeRatio / 100;
+    }
 
     public String getLogUri() {
         return logUri;
