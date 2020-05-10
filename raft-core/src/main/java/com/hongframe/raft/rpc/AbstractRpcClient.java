@@ -89,12 +89,12 @@ public abstract class AbstractRpcClient {
                 });
             }
         } catch (Exception e) {
+            LOG.error("", e);
             if (isAsync) {
                 callBack.invoke(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())));
             } else {
                 future = CompletableFuture.completedFuture(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())));
             }
-            LOG.error("", e);
         }
         return future;
     }

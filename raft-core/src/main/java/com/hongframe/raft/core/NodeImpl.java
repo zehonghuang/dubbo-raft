@@ -216,7 +216,7 @@ public class NodeImpl implements Node {
 
         this.state = State.STATE_FOLLOWER;
 
-        stepDown(this.currTerm, new Status());
+        stepDown(this.currTerm, new Status(10001, "node init"));
         return true;
     }
 
@@ -230,6 +230,7 @@ public class NodeImpl implements Node {
 
     public Message handlePreVoteRequest(final RequestVoteRequest request) {
         boolean doUnlock = true;
+        LOG.warn("form peerId: {}", request.getServerId());
         this.writeLock.lock();
         LOG.info("from {} pre vote request, term: {}", request.getServerId(), request.getTerm());
         try {
@@ -297,7 +298,7 @@ public class NodeImpl implements Node {
                 return;
             }
             if (voteResponse.getTerm() > this.currTerm) {
-                stepDown(voteResponse.getTerm(), null);
+                stepDown(voteResponse.getTerm(), new Status(10001, "voteResponse.getTerm() > this.currTerm"));
                 return;
             }
             if (voteResponse.getGranted()) {
@@ -330,7 +331,7 @@ public class NodeImpl implements Node {
             do {
                 if (request.getTerm() >= this.currTerm) {
                     if (request.getTerm() > this.currTerm) {
-                        stepDown(request.getTerm(), new Status());
+                        stepDown(request.getTerm(), new Status(10001, "requset vote request: .getTerm() > this.currTerm"));
                     }
                 } else {
                     break;
@@ -347,7 +348,7 @@ public class NodeImpl implements Node {
                 }
                 boolean isOk = new LogId(request.getTerm(), request.getLastLogIndex()).compareTo(lastLogId) >= 0;
                 if (isOk && (this.voteId == null || this.voteId.isEmpty())) {
-                    stepDown(request.getTerm(), new Status());
+                    stepDown(request.getTerm(), new Status(10001, "isOk && (this.voteId == null || this.voteId.isEmpty())"));
                     this.voteId = candidateId.copy();
                     this.metaStorage.setTermAndVotedFor(this.currTerm, this.voteId);
                 }
@@ -380,7 +381,7 @@ public class NodeImpl implements Node {
             }
             LOG.info("peer id {}, {}", peerId, response.toString());
             if (response.getTerm() > this.currTerm) {
-                stepDown(response.getTerm(), new Status());
+                stepDown(response.getTerm(), new Status(10001, "request vote response: .getTerm() > this.currTerm"));
             }
             if (response.getGranted()) {
                 this.voteCtx.grant(peerId);
@@ -390,6 +391,7 @@ public class NodeImpl implements Node {
             }
         } finally {
             this.writeLock.unlock();
+            LOG.warn("handleRequestVoteResponse end");
         }
     }
 
@@ -457,8 +459,8 @@ public class NodeImpl implements Node {
             }
             if (this.leaderId == null || this.leaderId.isEmpty()) {
                 this.leaderId = peerId;
+                LOG.info("this leader id: {}", this.leaderId);
             }
-            LOG.info("this leader id: {}", this.leaderId);
 
             updateLastLeaderTimestamp(Utils.monotonicMs());
 
@@ -483,9 +485,7 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 doUnlock = false;
                 this.writeLock.unlock();
-                LOG.info("handleAppendEntriesRequest heartbeat" + request.toString() + "\n" + response.toString());
                 this.ballotBox.setLastCommittedIndex(request.getCommittedIndex());
-                LOG.info("setLastCommittedIndex end");
                 return response;
             }
 
@@ -632,21 +632,27 @@ public class NodeImpl implements Node {
     }
 
     private void becomeLeader() {
-        this.state = State.STATE_LEADER;
-        this.leaderId = this.serverId.copy();
-        this.voteTimer.stop();
-        this.replicatorGroup.resetTerm(this.currTerm);
-        LOG.info("peer {} become Leader", this.leaderId);
-        this.replicatorGroup.resetTerm(this.currTerm);
-        this.ballotBox.resetPendingIndex(logManager.getLastLogIndex() + 1);
-        for (PeerId peerId : this.conf.getConf().getPeers()) {
-            if (peerId.equals(this.serverId)) {
-                continue;
+        try {
+            this.state = State.STATE_LEADER;
+            this.leaderId = this.serverId.copy();
+            this.voteTimer.stop();
+            this.replicatorGroup.resetTerm(this.currTerm);
+            LOG.info("peer {} become Leader", this.leaderId);
+            this.replicatorGroup.resetTerm(this.currTerm);
+            this.ballotBox.resetPendingIndex(logManager.getLastLogIndex() + 1);
+            for (PeerId peerId : this.conf.getConf().getPeers()) {
+                if (peerId.equals(this.serverId)) {
+                    continue;
+                }
+                this.replicatorGroup.addReplicator(peerId);
             }
-            this.replicatorGroup.addReplicator(peerId);
+            LOG.info("init replicatorGroup end");
+
+            //TODO 这是要去掉的，非法操作
+            this.nodeOptions.getStateMachine().onLeaderStart(this.currTerm);
+        } catch (Exception e) {
+            LOG.error("", e);
         }
-        //TODO 这是要去掉的，非法操作
-        this.nodeOptions.getStateMachine().onLeaderStart(this.currTerm);
 
         this.stepDownTimer.start();
     }
@@ -666,7 +672,7 @@ public class NodeImpl implements Node {
         if (checkDeadNodes0(peerIds, monotonicNowMs)) {
             return;
         }
-        stepDown(this.currTerm, new Status());
+        stepDown(this.currTerm, new Status(10001, "checkDeadNodes alive"));
 
     }
 
@@ -680,7 +686,6 @@ public class NodeImpl implements Node {
                 continue;
             }
             final long lastRpcSendTimestamp = this.replicatorGroup.getLastRpcSendTimestamp(peerId);
-            LOG.info("peer: {}, monotonicNowMs - lastRpcSendTimestamp = {}, leaderLeaseTimeoutMs: {}", peerId, monotonicNowMs - lastRpcSendTimestamp, leaderLeaseTimeoutMs);
             if (monotonicNowMs - lastRpcSendTimestamp <= leaderLeaseTimeoutMs) {
                 aliveCount++;
                 if (startLease > lastRpcSendTimestamp) {
@@ -689,7 +694,6 @@ public class NodeImpl implements Node {
                 continue;
             }
         }
-        LOG.info("alive count: {}", aliveCount);
         if (aliveCount >= peers.size() / 2 + 1) {
             updateLastLeaderTimestamp(startLease);
             return true;
@@ -702,6 +706,7 @@ public class NodeImpl implements Node {
         if (!this.state.isActive()) {
             return;
         }
+        LOG.error("status : {}", status.getErrorMsg());
         this.stepDownTimer.stop();
 
         this.leaderId = PeerId.emptyPeer();
@@ -775,6 +780,7 @@ public class NodeImpl implements Node {
 
         } finally {
             this.writeLock.unlock();
+            LOG.warn("electSelf end");
         }
 
     }

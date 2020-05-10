@@ -19,6 +19,7 @@ import java.util.PriorityQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Replicator {
 
@@ -35,6 +36,7 @@ public class Replicator {
 
     private FlyingAppendEntries fiying;
     private ArrayDeque<FlyingAppendEntries> appendEntriesInFly = new ArrayDeque<>();
+    private CompletableFuture<?> heartbeatInFly;
     private ScheduledFuture<?> heartbeatTimer;
     private int reqSeq = 0;
     private int requiredNextSeq = 0;
@@ -131,14 +133,16 @@ public class Replicator {
         if (!replicator.rpcClient.connect(replicator.options.getPeerId())) {
             return null;
         }
-        LOG.info("start Replicator :{}", replicator.options.getPeerId());
+
         ObjectLock<Replicator> lock = new ObjectLock<>(replicator);
         replicator.self = lock;
         lock.lock();
         replicator.lastRpcSendTimestamp = Utils.monotonicMs();
         replicator.startHeartbeatTimer(Utils.nowMs());
-//        replicator.sendEmptyEntries(false);
-        lock.unlock();
+        LOG.warn("startHeartbeatTimer");
+        replicator.sendEmptyEntries(false);
+        LOG.info("start Replicator :{}", replicator.options.getPeerId());
+//        lock.unlock();
         return lock;
     }
 
@@ -162,6 +166,7 @@ public class Replicator {
     }
 
     private void sendEmptyEntries(final boolean isHeartbeat) {
+        final AtomicBoolean doUnlock = new AtomicBoolean(true);
         try {
             AppendEntriesRequest request = new AppendEntriesRequest();
             long prevLogTerm = this.options.getLogManager().getTerm(this.nextIndex - 1);
@@ -176,33 +181,46 @@ public class Replicator {
             final long monotonicSendTimeMs = Utils.monotonicMs();
 
             if (isHeartbeat) {
-                LOG.info("isHeartbeat {}", request.toString());
-                this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
+                LOG.info("replicator: send heartbeat to {}", this.options.getPeerId());
+                this.heartbeatInFly = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {
+                        if (!status.isOk()) {
+                            doUnlock.set(false);
+                            Replicator.this.self.unlock();
+                        }
                         onHeartbeatReturned(Replicator.this.self, status, (AppendEntriesResponse) getResponse(), monotonicSendTimeMs);
                     }
                 });
             } else {
                 this.state = State.Probe;
                 int reqSeq = getAndIncrementReqSeq();
-                LOG.info("send probe request, seq is {}", reqSeq);
+                LOG.info("replicator: {}, send probe request, seq is {}", this.options.getPeerId(), reqSeq);
                 CompletableFuture<?> future = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {
                         //TODO appendEntries response
+                        if (!status.isOk()) {
+                            doUnlock.set(false);
+                            Replicator.this.self.unlock();
+                        }
                         onAppendEntriesReturned(Replicator.this.self, status, request, (AppendEntriesResponse) getResponse(), reqSeq, monotonicSendTimeMs);
                     }
                 });
                 addFlying(this.nextIndex, 0, reqSeq, future);
+                LOG.warn("send probe request end");
             }
+        } catch (Exception e) {
+            LOG.error("", e);
         } finally {
-            this.self.unlock();
+            if (doUnlock.get()) {
+                this.self.unlock();
+            }
+
         }
     }
 
     private void onHeartbeatReturned(ObjectLock<Replicator> lock, Status status, AppendEntriesResponse response, long monotonicSendTimeMs) {
-        LOG.info("onHeartbeatReturned: {}", response.toString());
         boolean doUnlock = true;
         final long startTimeMs = Utils.nowMs();
         Replicator replicator = lock.lock();
@@ -280,15 +298,6 @@ public class Replicator {
                     request = (AppendEntriesRequest) rpcResponse.request;
                     response = (AppendEntriesResponse) rpcResponse.response;
 
-                    if(response == null) {
-                        response = new AppendEntriesResponse();
-                    }
-                    LOG.info("curr term: {}, request seq {} [prev index: {}, prev term: {}, curr term: {}, entries size: {}]" +
-                                    "\nresponse[term: {}, success?: {}, lastLogLast: {}]" +
-                                    "\nflying[startLogIndex: {}]", this.options.getTerm(), seq,
-                            request.getPreLogIndex(), request.getPrevLogTerm(), request.getTerm(), request.getEntriesCount(),
-                            response.getTerm(), response.getSuccess(), response.getLastLogLast(),
-                            flying.startLogIndex);
 
                     if (flying.startLogIndex != request.getPreLogIndex() + 1) {
                         //TODO
@@ -299,9 +308,17 @@ public class Replicator {
 
                     if (!status.isOk()) {
                         //TODO block
+                        LOG.warn("onAppendEntriesReturned status :{}", (status.isOk() ? "OK!" : "Not OK!!!"));
                         continueSendEntries = false;
                         break;
                     }
+                    LOG.info("curr term: {}, request seq {} [prev index: {}, prev term: {}, curr term: {}, entries size: {}]" +
+                                    "\nresponse[term: {}, success?: {}, lastLogLast: {}]" +
+                                    "\nflying[startLogIndex: {}]", this.options.getTerm(), seq,
+                            request.getPreLogIndex(), request.getPrevLogTerm(), request.getTerm(), request.getEntriesCount(),
+                            response.getTerm(), response.getSuccess(), response.getLastLogLast(),
+                            flying.startLogIndex);
+
 
                     if (!response.getSuccess()) {
                         if (response.getTerm() > replicator.options.getTerm()) {
@@ -334,6 +351,7 @@ public class Replicator {
 
                     if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
                         replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
+                        LOG.info("update lastRpcSendTimestamp");
                     }
                     if (request.getEntriesCount() > 0) {
                         replicator.options.getBallotBox().commitAt(replicator.nextIndex,
@@ -384,19 +402,24 @@ public class Replicator {
     }
 
     private void sendEntries() {
-        long prevSendIndex = -1;
-        while (true) {
-            long nextSendIndex = getNextSendIndex();
-            if (nextSendIndex > prevSendIndex) {
-                if (sendEntries(nextSendIndex)) {
-                    prevSendIndex = nextSendIndex;
+        try {
+            long prevSendIndex = -1;
+            while (true) {
+                long nextSendIndex = getNextSendIndex();
+                LOG.info("nextSendIndex : {}", nextSendIndex);
+                if (nextSendIndex > prevSendIndex) {
+                    if (sendEntries(nextSendIndex)) {
+                        prevSendIndex = nextSendIndex;
+                    } else {
+                        break;
+                    }
                 } else {
                     break;
                 }
-            } else {
-                break;
-            }
 
+            }
+        } finally {
+            self.unlock();
         }
     }
 
@@ -425,6 +448,7 @@ public class Replicator {
         //TODO send request
         final long monotonicSendTimeMs = Utils.monotonicMs();
         final int seq = getAndIncrementReqSeq();
+        LOG.info("sendEntries :{}, request: {}", nextSendingIndex, request);
         CompletableFuture future = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
             @Override
             public void run(Status status) {
@@ -457,6 +481,9 @@ public class Replicator {
         Replicator r = self.lock();
         try {
             r.heartbeatTimer.cancel(true);
+            if (r.heartbeatInFly != null) {
+                r.heartbeatInFly.cancel(true);
+            }
         } finally {
             self.unlock();
         }
