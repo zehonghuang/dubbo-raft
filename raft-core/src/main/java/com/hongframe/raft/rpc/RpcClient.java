@@ -52,7 +52,7 @@ public class RpcClient extends AbstractRpcClient {
             reference.setUrl(url.toFullString());
             reference.setGeneric("true");
             reference.setAsync(true);
-            reference.setTimeout(1000);
+            reference.setTimeout(10000);
             referenceConfigMap.put(c.getSimpleName(), reference);
         }
 

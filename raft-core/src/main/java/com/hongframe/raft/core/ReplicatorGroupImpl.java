@@ -7,6 +7,8 @@ import com.hongframe.raft.option.ReplicatorGroupOptions;
 import com.hongframe.raft.option.ReplicatorOptions;
 import com.hongframe.raft.util.ObjectLock;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -37,6 +39,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         this.replicatorOptions.setElectionTimeoutMs(this.options.getElectionTimeoutMs());
         this.replicatorOptions.setDynamicHeartBeatTimeoutMs(this.options.getHeartbeatTimeoutMs());
         this.replicatorOptions.setBallotBox(this.options.getBallotBox());
+        this.replicatorOptions.setRaftOptions(this.options.getRaftOptions());
         return true;
     }
 
@@ -77,7 +80,13 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
     @Override
     public boolean stopAll() {
-        return false;
+        final List<ObjectLock<Replicator>> rids = new ArrayList<>(this.replicatorMap.values());
+        this.replicatorMap.clear();
+        this.failureReplicators.clear();
+        for (final ObjectLock rid : rids) {
+            Replicator.stop(rid);
+        }
+        return true;
     }
 
     @Override

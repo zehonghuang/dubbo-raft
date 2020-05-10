@@ -15,6 +15,7 @@ public class ReplicatorGroupOptions {
     private RpcClient rpcClient;
     private Scheduler timerManager;
     private BallotBox ballotBox;
+    private RaftOptions raftOptions;
 
     public BallotBox getBallotBox() {
         return ballotBox;
@@ -22,6 +23,14 @@ public class ReplicatorGroupOptions {
 
     public void setBallotBox(BallotBox ballotBox) {
         this.ballotBox = ballotBox;
+    }
+
+    public RaftOptions getRaftOptions() {
+        return raftOptions;
+    }
+
+    public void setRaftOptions(RaftOptions raftOptions) {
+        this.raftOptions = raftOptions;
     }
 
     public Scheduler getTimerManager() {

@@ -89,6 +89,7 @@ public class RpcServer {
         }
         service.setRef(rpcService);
         service.setAsync(true);
+        service.setTimeout(-1);
         return service;
     }
 

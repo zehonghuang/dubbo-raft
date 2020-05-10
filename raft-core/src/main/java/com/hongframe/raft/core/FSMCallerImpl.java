@@ -149,6 +149,7 @@ public class FSMCallerImpl implements FSMCaller {
         final LogId lastAppliedId = new LogId(lastIndex, lastTerm);
         this.lastAppliedIndex.set(lastIndex);
         this.lastAppliedTerm = lastTerm;
+        LOG.info("last applied index: {}, last applied term: {}", this.applyingIndex.get(), this.lastAppliedTerm);
         this.logManager.setAppliedId(lastAppliedId);
     }
 

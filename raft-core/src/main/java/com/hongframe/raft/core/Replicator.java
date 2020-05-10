@@ -137,13 +137,15 @@ public class Replicator {
         lock.lock();
         replicator.lastRpcSendTimestamp = Utils.monotonicMs();
         replicator.startHeartbeatTimer(Utils.nowMs());
-        replicator.sendEmptyEntries(false);
+//        replicator.sendEmptyEntries(false);
+        lock.unlock();
         return lock;
     }
 
     private void startHeartbeatTimer(long startMs) {
         final long dueTime = startMs + this.options.getDynamicHeartBeatTimeoutMs();
-        this.heartbeatTimer = this.timerManger.schedule(() -> onTimeout(this.self), dueTime - Utils.nowMs(), TimeUnit.MILLISECONDS);
+        long delay = dueTime - Utils.nowMs();
+        this.heartbeatTimer = this.timerManger.schedule(() -> onTimeout(this.self), delay, TimeUnit.MILLISECONDS);
     }
 
     private void onTimeout(ObjectLock<Replicator> lock) {
@@ -174,6 +176,7 @@ public class Replicator {
             final long monotonicSendTimeMs = Utils.monotonicMs();
 
             if (isHeartbeat) {
+                LOG.info("isHeartbeat {}", request.toString());
                 this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {
@@ -191,7 +194,7 @@ public class Replicator {
                         onAppendEntriesReturned(Replicator.this.self, status, request, (AppendEntriesResponse) getResponse(), reqSeq, monotonicSendTimeMs);
                     }
                 });
-                addFlying(0, 0, reqSeq, future);
+                addFlying(this.nextIndex, 0, reqSeq, future);
             }
         } finally {
             this.self.unlock();
@@ -199,7 +202,7 @@ public class Replicator {
     }
 
     private void onHeartbeatReturned(ObjectLock<Replicator> lock, Status status, AppendEntriesResponse response, long monotonicSendTimeMs) {
-
+        LOG.info("onHeartbeatReturned: {}", response.toString());
         boolean doUnlock = true;
         final long startTimeMs = Utils.nowMs();
         Replicator replicator = lock.lock();
@@ -277,6 +280,9 @@ public class Replicator {
                     request = (AppendEntriesRequest) rpcResponse.request;
                     response = (AppendEntriesResponse) rpcResponse.response;
 
+                    if(response == null) {
+                        response = new AppendEntriesResponse();
+                    }
                     LOG.info("curr term: {}, request seq {} [prev index: {}, prev term: {}, curr term: {}, entries size: {}]" +
                                     "\nresponse[term: {}, success?: {}, lastLogLast: {}]" +
                                     "\nflying[startLogIndex: {}]", this.options.getTerm(), seq,
@@ -346,6 +352,8 @@ public class Replicator {
 
             }
 
+        } catch (Exception e) {
+            LOG.error("", e);
         } finally {
 
             if (continueSendEntries) {
@@ -443,6 +451,16 @@ public class Replicator {
             return 0L;
         }
         return r.lastRpcSendTimestamp;
+    }
+
+    public static void stop(ObjectLock<Replicator> self) {
+        Replicator r = self.lock();
+        try {
+            r.heartbeatTimer.cancel(true);
+        } finally {
+            self.unlock();
+        }
+
     }
 
 }

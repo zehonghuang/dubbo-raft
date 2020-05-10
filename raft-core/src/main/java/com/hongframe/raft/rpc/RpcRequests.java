@@ -287,6 +287,9 @@ public class RpcRequests {
         }
 
         public int getEntriesCount() {
+            if(entries == null) {
+                return 0;
+            }
             return entries.size();
         }
 
@@ -455,6 +458,7 @@ public class RpcRequests {
         public String toString() {
             return "RequestVoteResponse{" +
                     "term=" + term +
+                    ", granted=" + granted +
                     ", preVote=" + preVote +
                     '}';
         }

@@ -174,18 +174,6 @@ public class NodeImpl implements Node {
         this.currTerm = this.metaStorage.getTerm();
         this.voteId = this.metaStorage.getVotedFor().copy();
 
-        this.rpcClient = DubboRaftRpcFactory.createRaftRpcClient();
-        this.replicatorGroup = new ReplicatorGroupImpl();
-        ReplicatorGroupOptions rgo = new ReplicatorGroupOptions();
-        rgo.setElectionTimeoutMs(this.nodeOptions.getElectionTimeoutMs());
-        rgo.setHeartbeatTimeoutMs(heartbeatTimeout(this.nodeOptions.getElectionTimeoutMs()));
-        rgo.setLogManager(this.logManager);
-        rgo.setNode(this);
-        rgo.setRpcClient(this.rpcClient);
-        rgo.setTimerManager(this.timerManger);
-        rgo.setBallotBox(this.ballotBox);
-        this.replicatorGroup.init(this.nodeId.copy(), rgo);
-
         this.callbackQueue = new CallbackQueueImpl();
         FSMCallerOptions fsmCallerOptions = new FSMCallerOptions();
         fsmCallerOptions.setFsm(this.nodeOptions.getStateMachine());
@@ -213,6 +201,19 @@ public class NodeImpl implements Node {
         this.applyDisruptor.setDefaultExceptionHandler(new LogExceptionHandler<Object>(getClass().getSimpleName()));
         this.applyQueue = this.applyDisruptor.start();
 
+        this.rpcClient = DubboRaftRpcFactory.createRaftRpcClient();
+        this.replicatorGroup = new ReplicatorGroupImpl();
+        ReplicatorGroupOptions rgo = new ReplicatorGroupOptions();
+        rgo.setElectionTimeoutMs(this.nodeOptions.getElectionTimeoutMs());
+        rgo.setHeartbeatTimeoutMs(heartbeatTimeout(this.nodeOptions.getElectionTimeoutMs()));
+        rgo.setLogManager(this.logManager);
+        rgo.setNode(this);
+        rgo.setRpcClient(this.rpcClient);
+        rgo.setTimerManager(this.timerManger);
+        rgo.setBallotBox(this.ballotBox);
+        rgo.setRaftOptions(this.raftOptions);
+        this.replicatorGroup.init(this.nodeId.copy(), rgo);
+
         this.state = State.STATE_FOLLOWER;
 
         stepDown(this.currTerm, new Status());
@@ -220,7 +221,7 @@ public class NodeImpl implements Node {
     }
 
     private int randomTimeout(final int timeoutMs) {
-        return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs + (timeoutMs << 2));
+        return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs +  + this.raftOptions.getMaxElectionDelayMs());
     }
 
     private int heartbeatTimeout(final int electionTimeout) {
@@ -228,9 +229,9 @@ public class NodeImpl implements Node {
     }
 
     public Message handlePreVoteRequest(final RequestVoteRequest request) {
-        LOG.info("from {} pre vote request, term: {}", request.getServerId(), request.getTerm());
         boolean doUnlock = true;
         this.writeLock.lock();
+        LOG.info("from {} pre vote request, term: {}", request.getServerId(), request.getTerm());
         try {
 
             if (!this.state.isActive()) {
@@ -256,6 +257,7 @@ public class NodeImpl implements Node {
                 this.writeLock.unlock();
 
                 final LogId lastLogId = this.logManager.getLastLogId(true);
+                LOG.info("last log id: {}", lastLogId);
 
                 doUnlock = true;
                 this.writeLock.lock();
@@ -349,6 +351,7 @@ public class NodeImpl implements Node {
                     this.voteId = candidateId.copy();
                     this.metaStorage.setTermAndVotedFor(this.currTerm, this.voteId);
                 }
+                LOG.info("candidateId: {}, voteId: {}", candidateId, this.voteId);
             } while (false);
 
             RequestVoteResponse response = new RequestVoteResponse();
@@ -375,7 +378,7 @@ public class NodeImpl implements Node {
             if (this.currTerm != term) {
                 return;
             }
-            LOG.info(response.toString());
+            LOG.info("peer id {}, {}", peerId, response.toString());
             if (response.getTerm() > this.currTerm) {
                 stepDown(response.getTerm(), new Status());
             }
@@ -434,6 +437,7 @@ public class NodeImpl implements Node {
     }
 
     public Message handleAppendEntriesRequest(final AppendEntriesRequest request, RequestCallback callback) {
+        LOG.info(request.toString());
         boolean doUnlock = true;
         this.writeLock.lock();
         final int entriesCount = request.getEntriesCount();
@@ -454,6 +458,7 @@ public class NodeImpl implements Node {
             if (this.leaderId == null || this.leaderId.isEmpty()) {
                 this.leaderId = peerId;
             }
+            LOG.info("this leader id: {}", this.leaderId);
 
             updateLastLeaderTimestamp(Utils.monotonicMs());
 
@@ -478,8 +483,9 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 doUnlock = false;
                 this.writeLock.unlock();
-
+                LOG.info("handleAppendEntriesRequest heartbeat" + request.toString() + "\n" + response.toString());
                 this.ballotBox.setLastCommittedIndex(request.getCommittedIndex());
+                LOG.info("setLastCommittedIndex end");
                 return response;
             }
 
@@ -505,7 +511,11 @@ public class NodeImpl implements Node {
     }
 
     private void handleElectionTimeout() {
-        LOG.info("peer {} election time out, begin pre Vote, my leader is {}", this.serverId, this.leaderId);
+        if(!this.leaderId.isEmpty()) {
+            LOG.info("peer {} election time out, begin pre Vote, my leader is {}", this.serverId, this.leaderId);
+        } else {
+            LOG.info("leeader is empty!!!");
+        }
         boolean doUnlock = true;
         this.writeLock.lock();
         try {
@@ -565,7 +575,7 @@ public class NodeImpl implements Node {
         @Override
         public void run(Status status) {
             if (!status.isOk()) {
-                LOG.warn(status.getErrorMsg());
+                LOG.warn("PreVoteResponseCallback[{}]", status.getErrorMsg());
                 return;
             }
             NodeImpl.this.handlePreVoteResponse(peerId, term, (RequestVoteResponse) getResponse());
@@ -670,6 +680,7 @@ public class NodeImpl implements Node {
                 continue;
             }
             final long lastRpcSendTimestamp = this.replicatorGroup.getLastRpcSendTimestamp(peerId);
+            LOG.info("peer: {}, monotonicNowMs - lastRpcSendTimestamp = {}, leaderLeaseTimeoutMs: {}", peerId, monotonicNowMs - lastRpcSendTimestamp, leaderLeaseTimeoutMs);
             if (monotonicNowMs - lastRpcSendTimestamp <= leaderLeaseTimeoutMs) {
                 aliveCount++;
                 if (startLease > lastRpcSendTimestamp) {
@@ -678,10 +689,12 @@ public class NodeImpl implements Node {
                 continue;
             }
         }
+        LOG.info("alive count: {}", aliveCount);
         if (aliveCount >= peers.size() / 2 + 1) {
             updateLastLeaderTimestamp(startLease);
             return true;
         }
+
         return false;
     }
 
@@ -689,13 +702,16 @@ public class NodeImpl implements Node {
         if (!this.state.isActive()) {
             return;
         }
+        this.stepDownTimer.stop();
 
         this.leaderId = PeerId.emptyPeer();
-
+        LOG.info("leader id change empty!!!");
         if (term > this.currTerm) {
             this.currTerm = term;
             this.voteId = PeerId.emptyPeer();
         }
+
+        this.replicatorGroup.stopAll();
 
         electionTimer.start();
     }
@@ -713,6 +729,7 @@ public class NodeImpl implements Node {
                 this.electionTimer.stop();
             }
             this.leaderId = PeerId.emptyPeer();
+            LOG.info("leader id change empty!!!");
             this.state = State.STATE_CANDIDATE;
             this.currTerm++;
             this.voteId = this.serverId.copy();
@@ -731,6 +748,10 @@ public class NodeImpl implements Node {
                 return;
             }
             for (PeerId peerId : this.conf.getConf().getPeers()) {
+                if (peerId.equals(this.serverId)) {
+                    continue;
+                }
+
                 if (!this.rpcClient.connect(peerId)) {
                     continue;
                 }

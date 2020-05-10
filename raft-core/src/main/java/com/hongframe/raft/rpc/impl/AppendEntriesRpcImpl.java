@@ -193,11 +193,12 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
 
         Message message = getNode(request).handleAppendEntriesRequest(request,
                 new SequenceRequestCallback(request.getGroupId(), request.getPeerId(), seq, asyncContext));
-        if (message == null) {
-            return null;
+        if (message != null) {
+            asyncContext.signalContextSwitch();
+            LOG.info("response: {}", message);
+            asyncContext.write(checkResponse(message));
         }
-        asyncContext.stop();
-        return checkResponse(message);
+        return null;
     }
 
 }
