@@ -28,6 +28,7 @@ public class Replicator {
     private RpcClient rpcClient;
     private volatile long nextIndex = 1;
     private State state;
+    private long waitId = -1L;
     private ObjectLock<Replicator> self;
     private final ReplicatorOptions options;
     private Scheduler timerManger;
@@ -423,6 +424,21 @@ public class Replicator {
         }
     }
 
+    private void waitMoreEntries(final long nextWaitIndex) {
+        LOG.warn("Node {} wait more entries, next index: {}", this.options.getPeerId(), nextWaitIndex);
+        if (this.waitId > -1) {
+            return;
+        }
+        this.waitId = this.options.getLogManager().wait(nextWaitIndex - 1,
+                (objectlock, errorCode) -> continueSending(Replicator.this.self, errorCode), this.self);
+    }
+
+    static boolean continueSending(final ObjectLock<Replicator> lock, final int errCode) {
+        Replicator replicator = lock.lock();
+        //TODO continueSending
+        return true;
+    }
+
     private boolean sendEntries(final long nextSendingIndex) {
         AppendEntriesRequest request = new AppendEntriesRequest();
         request.setTerm(this.options.getTerm());
@@ -441,7 +457,7 @@ public class Replicator {
             }
         }
         if (entries.isEmpty()) {
-            //TODO wait more entries
+            waitMoreEntries(nextSendingIndex);
             return false;
         }
         request.setEntries(entries);

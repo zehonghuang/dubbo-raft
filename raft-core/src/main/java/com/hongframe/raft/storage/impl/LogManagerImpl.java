@@ -18,7 +18,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
@@ -44,6 +46,8 @@ public class LogManagerImpl implements LogManager {
     private Disruptor<FlushDoneCallbackEvent> disruptor;
     private RingBuffer<FlushDoneCallbackEvent> diskQueue;
 
+    private final Map<Long, WaitMeta> waitMap = new HashMap<>();
+    private long nextWaitId;
     private LogId diskId = new LogId(0, 0);
     private LogId appliedId = new LogId(0, 0);
     private volatile long firstLogIndex;
@@ -268,6 +272,7 @@ public class LogManagerImpl implements LogManager {
     @Override
     public void appendEntries(List<LogEntry> entries, FlushDoneCallback callback) {
         LOG.info("executeTasks -> appendEntries");
+        boolean doUnlock = true;
         this.writeLock.lock();
         try {
             if (!entries.isEmpty() && !checkAndResolveConflict(entries, callback)) {
@@ -296,9 +301,30 @@ public class LogManagerImpl implements LogManager {
                     Thread.yield();
                 }
             }
+            doUnlock = false;
+            wakeupAllWaiter();
         } finally {
-            this.writeLock.unlock();
+            if(doUnlock) {
+                this.writeLock.unlock();
+            }
         }
+    }
+
+    private boolean wakeupAllWaiter() {
+        if(this.waitMap.isEmpty()) {
+            this.writeLock.unlock();
+            return false;
+        }
+        final List<WaitMeta> wms = new ArrayList<>(this.waitMap.values());
+        this.waitMap.clear();
+        this.writeLock.unlock();
+
+        final int waiterCount = wms.size();
+        for (int i = 0; i < waiterCount; i++) {
+            final WaitMeta wm = wms.get(i);
+            Utils.runInThread(() -> runOnNewLog(wm));
+        }
+        return true;
     }
 
     @Override
@@ -418,6 +444,44 @@ public class LogManagerImpl implements LogManager {
             }
         }
         return true;
+    }
+
+    private static class WaitMeta {
+        NewLogNotification notify;
+        int errorCode;
+        Object arg;
+
+        public WaitMeta(final NewLogNotification notify, final Object arg, final int errorCode) {
+            super();
+            this.notify = notify;
+            this.arg = arg;
+            this.errorCode = errorCode;
+        }
+
+    }
+
+    @Override
+    public long wait(long expectedLastLogIndex, NewLogNotification notify, Object arg) {
+        final WaitMeta wm = new WaitMeta(notify, arg, 0);
+        this.writeLock.lock();
+        try {
+            if (expectedLastLogIndex != this.lastLogIndex) {
+                Utils.runInThread(() -> runOnNewLog(wm));
+                return 0;
+            }
+            if (this.nextWaitId == 0) {
+                this.nextWaitId++;
+            }
+            long waitid = this.nextWaitId++;
+            this.waitMap.put(waitid, wm);
+            return waitid;
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
+
+    void runOnNewLog(final WaitMeta wm) {
+        wm.notify.onNewLog(wm.arg, wm.errorCode);
     }
 
     @Override

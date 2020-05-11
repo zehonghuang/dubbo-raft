@@ -73,13 +73,13 @@ public class RocksDBOptionsFactory {
 
     public static ColumnFamilyOptions getDefaultRocksDBColumnFamilyOptions() {
         final ColumnFamilyOptions opts = new ColumnFamilyOptions();
-        // 每个mentable的大小
+        // 每个memtable的大小
         opts.setWriteBufferSize(64 * SizeUnit.MB);
 
-        // mentable最大数量
+        // memtable最大数量
         opts.setMaxWriteBufferNumber(3);
 
-        // 合并mentable -> level0
+        // 合并memtable -> level0
         opts.setMinWriteBufferNumberToMerge(1);
 
         // level0文件达到10个。触发压缩至level1
@@ -88,7 +88,7 @@ public class RocksDBOptionsFactory {
         // level0文件达到20个，减缓写入
         opts.setLevel0SlowdownWritesTrigger(20);
 
-        // level0文件达到20个，停止写入
+        // level0文件达到40个，停止写入
         opts.setLevel0StopWritesTrigger(40);
 
         // 设定level1最大为512MB，后续的等级大小是之前等级的10倍(max_bytes_for_level_multiplier默认设置)

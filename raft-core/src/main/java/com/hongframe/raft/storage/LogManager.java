@@ -42,6 +42,10 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
         }
     }
 
+    interface NewLogNotification {
+        boolean onNewLog(final Object arg, final int errorCode);
+    }
+
     long getFirstLogIndex();
 
     long getLastLogIndex();
@@ -54,8 +58,10 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
 
     long getTerm(final long index);
 
+    LogEntry getEntry(final long index);
+
     void appendEntries(final List<LogEntry> entries, FlushDoneCallback callback);
 
-    LogEntry getEntry(final long index);
+    long wait(final long expectedLastLogIndex, final NewLogNotification notify, final Object arg);
 
 }
