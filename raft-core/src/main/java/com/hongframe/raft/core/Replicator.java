@@ -435,7 +435,8 @@ public class Replicator {
 
     static boolean continueSending(final ObjectLock<Replicator> lock, final int errCode) {
         Replicator replicator = lock.lock();
-        //TODO continueSending
+        //TODO continueSending 未处理errCode，待完善
+        replicator.sendEntries();
         return true;
     }
 
