@@ -152,6 +152,8 @@ public class LogManagerImpl implements LogManager {
                     .build();
             this.disruptor.handleEventsWith(new FlushDoneCallbackEventHandler());
             this.diskQueue = this.disruptor.start();
+
+            LOG.info("init log manager {}", toString());
             return true;
         } finally {
             this.writeLock.unlock();
@@ -253,14 +255,14 @@ public class LogManagerImpl implements LogManager {
             return 0;
         }
         LogEntry entry;
-        this.writeLock.lock();
+        this.readLock.lock();
         try {
             entry = getEntryFromMemory(index);
             if (entry != null) {
                 return entry.getId().getTerm();
             }
         } finally {
-            this.writeLock.unlock();
+            this.readLock.unlock();
         }
         entry = this.logStorage.getEntry(index);
         if (entry != null) {
@@ -311,6 +313,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     private boolean wakeupAllWaiter() {
+        LOG.info("Node wakeupAllWaiter, wait map: {}", this.waitMap);
         if(this.waitMap.isEmpty()) {
             this.writeLock.unlock();
             return false;
@@ -332,9 +335,11 @@ public class LogManagerImpl implements LogManager {
         this.readLock.lock();
         try {
             if (index < this.firstLogIndex || index > this.lastLogIndex) {
+                LOG.info("index: {}, this.firLogIndex: {}, this.lastLogIndex: {}", index, this.firstLogIndex, this.lastLogIndex);
                 return null;
             }
             LogEntry entry = getEntryFromMemory(index);
+            LOG.info("entry is null? {}", entry == null);
             if (entry != null) {
                 return entry;
             }
@@ -344,16 +349,23 @@ public class LogManagerImpl implements LogManager {
         LogEntry entry = this.logStorage.getEntry(index);
         if (entry == null) {
             //TODO error
+        } else {
+            LOG.info("entry log id: {}", entry.getId());
         }
         return entry;
     }
 
     private LogEntry getEntryFromMemory(long index) {
         if (!logsInMemory.isEmpty()) {
-            if (index <= this.lastLogIndex && index >= this.firstLogIndex) {
-                return logsInMemory.get((int) (index - this.firstLogIndex));
+            final long firstIndex = this.logsInMemory.peekFirst().getId().getIndex();
+            final long lastIndex = this.logsInMemory.peekLast().getId().getIndex();
+            LOG.info("logsInMemory size: {}, index: {}, first index: {}, last index: {}", logsInMemory.size(),
+                    index, firstIndex, lastIndex);
+            if (index <= lastIndex && index >= firstIndex) {
+                return logsInMemory.get((int) (index - firstIndex));
             }
         }
+        LOG.info("logsInMemory is empty!!!");
         return null;
     }
 
@@ -425,6 +437,7 @@ public class LogManagerImpl implements LogManager {
             }
             return true;
         } else {
+            LOG.warn("fist: {}, last: {}", first.getId(), ArrayDeque.peekLast(entries).getId());
             if (first.getId().getIndex() > this.lastLogIndex + 1) {
                 Utils.runInThread(() -> {
                     doneCallback.run(new Status(10001, ""));
@@ -463,6 +476,7 @@ public class LogManagerImpl implements LogManager {
     @Override
     public long wait(long expectedLastLogIndex, NewLogNotification notify, Object arg) {
         final WaitMeta wm = new WaitMeta(notify, arg, 0);
+        LOG.info("expectedLastLogIndex: {}", expectedLastLogIndex);
         this.writeLock.lock();
         try {
             if (expectedLastLogIndex != this.lastLogIndex) {
@@ -487,5 +501,16 @@ public class LogManagerImpl implements LogManager {
     @Override
     public void shutdown() {
 
+    }
+
+    @Override
+    public String toString() {
+        return "LogManagerImpl{" +
+                "nextWaitId=" + nextWaitId +
+                ", diskId=" + diskId +
+                ", appliedId=" + appliedId +
+                ", firstLogIndex=" + firstLogIndex +
+                ", lastLogIndex=" + lastLogIndex +
+                '}';
     }
 }

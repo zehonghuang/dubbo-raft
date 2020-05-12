@@ -4,6 +4,8 @@ import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.ResponseCallback;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.rpc.RpcRequests;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 
@@ -12,6 +14,8 @@ import java.util.Objects;
  * create time: 2020-04-18 15:51
  */
 public abstract class ResponseCallbackAdapter implements ResponseCallback {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ResponseCallbackAdapter.class);
 
     private Message message ;
 
@@ -30,6 +34,7 @@ public abstract class ResponseCallbackAdapter implements ResponseCallback {
             setResponse(message);
             run(Status.OK());
         } else {
+            LOG.info(response.toString());
             run(new Status(response.getError().getErrorCode(), response.getError().getErrorMsg()));
         }
     }

@@ -95,7 +95,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
             }
             final long startAt = Math.max(this.pendingIndex, firstLogIndex);
             for (long i = startAt; i <= lastLogIndex; i++) {
-                Ballot ballot = pendingMetaQueue.get((int) (i - this.pendingIndex));
+                Ballot ballot = pendingMetaQueue.get((int) (i - this.pendingIndex));//TODO java.lang.IndexOutOfBoundsException: Index=0, Offset=10, Pos=14
                 ballot.grant(peerId);
                 LOG.info("peer: {}, log index: {} grant 1", peerId.toString(), i);
                 if (ballot.isGranted()) {
@@ -117,13 +117,15 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
 
     public boolean setLastCommittedIndex(final long lastCommittedIndex) {
         boolean doUnlock = true;
+        if (lastCommittedIndex > 0) {
+            LOG.info("lastCommittedIndex: {}, this.lastCommittedIndex: {}", lastCommittedIndex, this.lastCommittedIndex);
+        }
         this.writeLock.lock();
         try {
             // 只有leader才满足这个条件
             if (this.pendingIndex != 0 || !this.pendingMetaQueue.isEmpty()) {
                 return false;
             }
-            LOG.info("last committed index: {} and this.last committed index: {}", lastCommittedIndex, this.lastCommittedIndex);
             if (lastCommittedIndex < this.lastCommittedIndex) {
                 return false;
             }
@@ -133,6 +135,8 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
                 doUnlock = false;
                 this.caller.onCommitted(lastCommittedIndex);
             }
+        } catch (Exception e) {
+            LOG.error("", e);
         } finally {
             if (doUnlock) {
                 this.writeLock.unlock();

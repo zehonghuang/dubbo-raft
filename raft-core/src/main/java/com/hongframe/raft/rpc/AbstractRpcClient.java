@@ -89,7 +89,7 @@ public abstract class AbstractRpcClient {
                 });
             }
         } catch (Exception e) {
-            LOG.error("", e);
+            LOG.error("{}", e.getMessage());
             if (isAsync) {
                 callBack.invoke(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())));
             } else {
@@ -112,6 +112,10 @@ public abstract class AbstractRpcClient {
             RpcRequests.ErrorResponse errorResponse = (RpcRequests.ErrorResponse) Class.forName((String) errorMap.get("class")).newInstance();
             BeanUtils.populate(errorResponse, errorMap);
             response.setError(errorResponse);
+        }
+
+        if (response.getError() == null && response.getData() == null) {
+            response.setError(new RpcRequests.ErrorResponse(100001, "mapToResponse error: " + map.toString()));
         }
         return response;
     }

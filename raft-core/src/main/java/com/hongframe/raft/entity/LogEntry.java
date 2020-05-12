@@ -1,9 +1,12 @@
 package com.hongframe.raft.entity;
 
+import com.hongframe.raft.rpc.RpcRequests;
+
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class LogEntry {
+public class LogEntry implements Serializable {
 
     private EntryType type;
     private LogId id = new LogId(0, 0);
@@ -49,5 +52,17 @@ public class LogEntry {
 
     public void setData(ByteBuffer data) {
         this.data = data;
+    }
+
+    public static LogEntry getInstance(RpcRequests.OutLogEntry out) {
+        LogEntry logEntry = new LogEntry();
+        logEntry.setType(out.getType());
+        logEntry.setId(out.getId());
+        logEntry.setPeers(out.getPeers());
+        logEntry.setOldPeers(out.getOldPeers());
+        if(out.getData() != null && out.getData().length > 0) {
+            logEntry.setData(ByteBuffer.wrap(out.getData()));
+        }
+        return logEntry;
     }
 }

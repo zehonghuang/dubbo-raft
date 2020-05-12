@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -22,7 +23,7 @@ public class CounterServiceImpl implements CounterService {
 
     private static final Logger LOG = LoggerFactory.getLogger(CounterServiceImpl.class);
 
-    private AtomicInteger value = new AtomicInteger();
+    private AtomicLong value = new AtomicLong();
     private CounterRaftServerStartup startup;
 
     public CounterServiceImpl(CounterRaftServerStartup startup) {
@@ -37,13 +38,8 @@ public class CounterServiceImpl implements CounterService {
 
         CounterCallback counterCallback = new CounterCallback(asyncContext);
         Task task = new Task();
-        task.setCallback(new ResponseCallbackAdapter() {
-            @Override
-            public void run(Status status) {
-
-            }
-        });
-        task.setData(ByteBuffer.allocate(32).putInt(value.get()));
+        task.setCallback(counterCallback);
+        task.setData(ByteBuffer.allocate(64).putLong(value.get()));
         startup.getNode().apply(task);
 
         return null;

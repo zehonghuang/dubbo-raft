@@ -6,7 +6,10 @@ import com.hongframe.raft.entity.LogId;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.entity.codec.LogEntryEncoder;
 import com.hongframe.raft.util.AsciiStringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 
@@ -15,6 +18,8 @@ import java.util.List;
  * create time: 2020-04-28 21:26
  */
 public class ProtoLogEntryEncoder implements LogEntryEncoder {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ProtoLogEntryEncoder.class);
 
     public static final ProtoLogEntryEncoder INSTANCE = new ProtoLogEntryEncoder();
 
@@ -40,7 +45,13 @@ public class ProtoLogEntryEncoder implements LogEntryEncoder {
             encodeOldPeers(builder, oldPeers);
         }
 
-        builder.setData(log.getData() != null ? ByteString.copyFrom(log.getData()) : ByteString.EMPTY);
+        if(log.getData() != null) {
+            byte[] bs = log.getData().array();
+            builder.setData(ByteString.copyFrom(log.getData()));
+            log.setData(ByteBuffer.wrap(bs));
+        } else {
+            builder.setData(ByteString.EMPTY);
+        }
 
         return builder.build().toByteArray();
     }

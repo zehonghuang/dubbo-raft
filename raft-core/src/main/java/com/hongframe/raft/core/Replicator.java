@@ -182,7 +182,6 @@ public class Replicator {
             final long monotonicSendTimeMs = Utils.monotonicMs();
 
             if (isHeartbeat) {
-                LOG.info("replicator: send heartbeat to {}", this.options.getPeerId());
                 this.heartbeatInFly = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {
@@ -389,9 +388,10 @@ public class Replicator {
         this.appendEntriesInFly.add(fiying);
     }
 
-    private int getNextSendIndex() {
+    private long getNextSendIndex() {
+        LOG.info("appendEntriesInFly size: {}", this.appendEntriesInFly.size());
         if (this.appendEntriesInFly.isEmpty()) {
-            return -1;
+            return this.nextIndex;
         }
         if (this.appendEntriesInFly.size() > this.options.getRaftOptions().getMaxReplicatorFlyingMsgs()) {
             return -1;
@@ -435,6 +435,7 @@ public class Replicator {
 
     static boolean continueSending(final ObjectLock<Replicator> lock, final int errCode) {
         Replicator replicator = lock.lock();
+        LOG.info("Node {} continueSending next index: {}", replicator.options.getPeerId(), replicator.nextIndex);
         //TODO continueSending 未处理errCode，待完善
         replicator.sendEntries();
         return true;
@@ -451,9 +452,11 @@ public class Replicator {
         request.setCommittedIndex(this.options.getBallotBox().getLastCommittedIndex());
 
         final int maxEntriesSize = this.options.getRaftOptions().getMaxEntriesSize();
-        List<LogEntry> entries = new LinkedList<>();
+        LOG.info(request.toString());
+        List<OutLogEntry> entries = new LinkedList<>();
         for (int i = 0; i < maxEntriesSize; i++) {
             if (!prepareEntry(nextSendingIndex, i, entries)) {
+                LOG.info("prepareEntry end, nextSendingIndex: {}, i: {}, entries size: {}", nextSendingIndex, i, entries.size());
                 break;
             }
         }
@@ -461,7 +464,9 @@ public class Replicator {
             waitMoreEntries(nextSendingIndex);
             return false;
         }
-        request.setEntries(entries);
+
+        LOG.info("entries size: {}, first index: {}", entries.size(), entries.get(0).getId());
+        request.setOutEntries(entries);
         //TODO send request
         final long monotonicSendTimeMs = Utils.monotonicMs();
         final int seq = getAndIncrementReqSeq();
@@ -476,13 +481,14 @@ public class Replicator {
         return true;
     }
 
-    private boolean prepareEntry(long nextSendIndex, int offset, List<LogEntry> entries) {
+    private boolean prepareEntry(long nextSendIndex, int offset, List<OutLogEntry> entries) {
         long logIndex = nextSendIndex + offset;
         LogEntry entry = this.options.getLogManager().getEntry(logIndex);
         if (entry == null) {
             return false;
         }
-        entries.add(entry);
+        entries.add(OutLogEntry.getInstance(entry));
+        LOG.info("entry log index: {}, entries size: {}", entry.getId(), entries.size());
         return true;
     }
 
@@ -497,6 +503,11 @@ public class Replicator {
     public static void stop(ObjectLock<Replicator> self) {
         Replicator r = self.lock();
         try {
+            for (final FlyingAppendEntries inflight : r.appendEntriesInFly) {
+                if (inflight != r.fiying) {
+                    inflight.future.cancel(true);
+                }
+            }
             r.heartbeatTimer.cancel(true);
             if (r.heartbeatInFly != null) {
                 r.heartbeatInFly.cancel(true);

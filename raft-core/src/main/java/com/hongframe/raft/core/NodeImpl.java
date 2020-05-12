@@ -26,6 +26,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -77,6 +78,8 @@ public class NodeImpl implements Node {
     private FSMCaller caller;
     private RaftMetaStorage metaStorage;
     private ReplicatorGroup replicatorGroup;
+
+    private AtomicInteger lockcount = new AtomicInteger();
 
 
     public NodeImpl(String groupId, PeerId serverId) {
@@ -331,6 +334,7 @@ public class NodeImpl implements Node {
             do {
                 if (request.getTerm() >= this.currTerm) {
                     if (request.getTerm() > this.currTerm) {
+                        LOG.info(request.toString());
                         stepDown(request.getTerm(), new Status(10001, "requset vote request: .getTerm() > this.currTerm"));
                     }
                 } else {
@@ -419,7 +423,9 @@ public class NodeImpl implements Node {
 
             LOG.info("FollowerFlushDoneCallback[term: {}, node curr term: {}]", this.term, this.node.currTerm);
             AppendEntriesResponse response = new AppendEntriesResponse();
+            LOG.warn("readLock.lock();");
             this.node.readLock.lock();
+
             try {
                 if (this.term != this.node.currTerm) {
                     response.setSuccess(false);
@@ -428,20 +434,22 @@ public class NodeImpl implements Node {
                     return;
                 }
             } finally {
+                LOG.info("this.node.readLock.unlock();");
                 this.node.readLock.unlock();
             }
 
             response.setSuccess(true);
             response.setTerm(this.node.currTerm);
             this.node.ballotBox.setLastCommittedIndex(this.committedIndex);
+            LOG.info("response: {}, committedIndex: {}", response, this.committedIndex);
             callback.sendResponse(response);
         }
     }
 
     public Message handleAppendEntriesRequest(final AppendEntriesRequest request, RequestCallback callback) {
-        LOG.info(request.toString());
         boolean doUnlock = true;
         this.writeLock.lock();
+        LOG.warn("writeLock.lock(): {}", lockcount.incrementAndGet());
         final int entriesCount = request.getEntriesCount();
         try {
             if (!this.state.isActive()) {
@@ -467,9 +475,7 @@ public class NodeImpl implements Node {
             long reqPrevIndex = request.getPreLogIndex();
             long reqPrevTerm = request.getPrevLogTerm();
             long localPervTerm = this.logManager.getTerm(reqPrevIndex);
-            LOG.info("[prev index: {}, prev log term: {}, last committed index, local perv term: {}, entries count: {}]",
-                    reqPrevIndex, reqPrevTerm, request.getCommittedIndex(), localPervTerm, entriesCount);
-
+            LOG.warn("reqPrevIndex: {}, reqPrevTerm: {}, localPervTerm: {}, lockcount: {}", reqPrevIndex, reqPrevTerm, localPervTerm, this.lockcount.get());
             if (reqPrevTerm != localPervTerm) {
                 AppendEntriesResponse response = new AppendEntriesResponse();
                 response.setSuccess(false);
@@ -477,12 +483,14 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 return response;
             }
-
+            LOG.warn("reqPrevTerm != localPervTerm, {}", this.lockcount.get());
             if (entriesCount == 0) {
                 AppendEntriesResponse response = new AppendEntriesResponse();
                 response.setSuccess(true);
                 response.setTerm(this.currTerm);
+                LOG.warn("response.setTerm(this.currTerm);, {}", this.lockcount.get());
                 response.setLastLogLast(this.logManager.getLastLogIndex());
+                LOG.warn("entriesCount == 0;  writeLock.unlock(); {}", lockcount.get());
                 doUnlock = false;
                 this.writeLock.unlock();
                 this.ballotBox.setLastCommittedIndex(request.getCommittedIndex());
@@ -491,15 +499,19 @@ public class NodeImpl implements Node {
 
 
             List<LogEntry> entries = new ArrayList<>(entriesCount);
-            List<LogEntry> requestEntries = request.getEntries();
+            List<OutLogEntry> requestEntries = request.getOutEntries();
 
             for (int i = 0; i < entriesCount; i++) {
                 //TODO check sum
-                entries.add(requestEntries.get(0));
+                entries.add(LogEntry.getInstance(requestEntries.get(i)));
             }
+            LOG.info("request body: {}", request.toString());
             this.logManager.appendEntries(entries, new FollowerFlushDoneCallback(entries, callback, request, this.currTerm, this));
-        } finally {
+        } catch (Exception e) {
+            LOG.error("", e);
+        }finally {
             if (doUnlock) {
+                LOG.warn("writeLock.unlock(); {}", lockcount.get());
                 this.writeLock.unlock();
             }
         }
@@ -512,7 +524,7 @@ public class NodeImpl implements Node {
 
     private void handleElectionTimeout() {
         if(!this.leaderId.isEmpty()) {
-            LOG.info("peer {} election time out, begin pre Vote, my leader is {}", this.serverId, this.leaderId);
+            LOG.info("peer {} election time out, begin pre Vote, my leader is {}, lock count: {} state: {}", this.serverId, this.leaderId, this.lockcount.get(), this.readWriteLock.toString());
         } else {
             LOG.info("leeader is empty!!!");
         }

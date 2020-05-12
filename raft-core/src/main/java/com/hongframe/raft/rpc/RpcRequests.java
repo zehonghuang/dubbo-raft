@@ -1,11 +1,12 @@
 package com.hongframe.raft.rpc;
 
-import com.hongframe.raft.entity.LogEntry;
-import com.hongframe.raft.entity.Message;
+import com.hongframe.raft.entity.*;
 import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 import com.hongframe.raft.rpc.core.MembershipChangeRpc;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 
+import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
@@ -254,6 +255,74 @@ public class RpcRequests {
         }
     }
 
+    public static final class OutLogEntry implements Serializable {
+        private EntryType type;
+        private LogId id = new LogId(0, 0);
+        private List<PeerId> peers;
+        private List<PeerId> oldPeers;
+        private byte[] data;
+
+        public EntryType getType() {
+            return type;
+        }
+
+        public void setType(EntryType type) {
+            this.type = type;
+        }
+
+        public LogId getId() {
+            return id;
+        }
+
+        public void setId(LogId id) {
+            this.id = id;
+        }
+
+        public List<PeerId> getPeers() {
+            return peers;
+        }
+
+        public void setPeers(List<PeerId> peers) {
+            this.peers = peers;
+        }
+
+        public List<PeerId> getOldPeers() {
+            return oldPeers;
+        }
+
+        public void setOldPeers(List<PeerId> oldPeers) {
+            this.oldPeers = oldPeers;
+        }
+
+        public byte[] getData() {
+            return data;
+        }
+
+        public void setData(byte[] data) {
+            this.data = data;
+        }
+
+        public static OutLogEntry getInstance(LogEntry entry) {
+            OutLogEntry out = new OutLogEntry();
+            out.setType(entry.getType());
+            out.setId(entry.getId());
+            out.setPeers(entry.getPeers());
+            out.setOldPeers(entry.getOldPeers());
+            if(entry.getData() != null) {
+                out.setData(entry.getData().array());
+            }
+            return out;
+        }
+
+        @Override
+        public String toString() {
+            return "OutLogEntry{" +
+                    "type=" + type +
+                    ", id=" + id +
+                    '}';
+        }
+    }
+
     public static final class AppendEntriesRequest implements Message {
         private String groupId;
         private String serverId;
@@ -261,7 +330,9 @@ public class RpcRequests {
         private Long term;
         private Long prevLogTerm;
         private Long preLogIndex;
+        @Deprecated
         private List<LogEntry> entries;
+        private List<OutLogEntry> outEntries;
         private Long committedIndex;
 
         @Override
@@ -273,9 +344,17 @@ public class RpcRequests {
                     ", term=" + term +
                     ", prevLogTerm=" + prevLogTerm +
                     ", preLogIndex=" + preLogIndex +
-                    ", entries=" + entries +
+                    ", outEntries=" + outEntries +
                     ", committedIndex=" + committedIndex +
                     '}';
+        }
+
+        public List<OutLogEntry> getOutEntries() {
+            return outEntries;
+        }
+
+        public void setOutEntries(List<OutLogEntry> outEntries) {
+            this.outEntries = outEntries;
         }
 
         public List<LogEntry> getEntries() {
@@ -287,10 +366,10 @@ public class RpcRequests {
         }
 
         public int getEntriesCount() {
-            if(entries == null) {
+            if(outEntries == null) {
                 return 0;
             }
-            return entries.size();
+            return outEntries.size();
         }
 
         public String getGroupId() {

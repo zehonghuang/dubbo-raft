@@ -1,7 +1,6 @@
 package com.hongframe.raft.rpc.impl;
 
 import com.hongframe.raft.Status;
-import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.RequestCallback;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.rpc.RpcRequests.*;
@@ -29,16 +28,27 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
         private final int sequence;
         private final AsyncContext asyncContext;
         private final Message message;
+        private final int queueSize;
 
-        public SequenceMessage(int sequence, Message message, AsyncContext asyncContext) {
+        public SequenceMessage(int sequence, Message message, AsyncContext asyncContext, int queueSize) {
             this.sequence = sequence;
             this.message = message;
             this.asyncContext = asyncContext;
+            this.queueSize = queueSize;
         }
 
         public void sendResponse() {
             asyncContext.signalContextSwitch();
-            asyncContext.write(message);
+            asyncContext.write(new Response<>(message));
+        }
+
+        @Override
+        public String toString() {
+            return "SequenceMessage{" +
+                    "sequence=" + sequence +
+                    ", message=" + message +
+                    ", queueSize=" + queueSize +
+                    '}';
         }
 
         @Override
@@ -135,14 +145,12 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
             this.peerId = peerId;
             this.reqSeq = reqSeq;
             this.asyncContext = asyncContext;
-            LOG.info("Create {}", toString());
         }
 
         @Override
         public void run(Status status) {
             if (!status.isOk()) {
-                asyncContext.signalContextSwitch();
-                asyncContext.write(new Response<>(new ErrorResponse(10001, status.getErrorMsg())));
+                sendResponse(new Response<>(new ErrorResponse(10001, status.getErrorMsg())));
             }
         }
 
@@ -151,12 +159,12 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
             SequenceRequestContext seqCtx = getSequenceRequestContext(this.groupId, this.peerId);
             final PriorityQueue<SequenceMessage> respQueue = seqCtx.responseQueue;
             synchronized (respQueue) {
-                respQueue.add(new SequenceMessage(this.reqSeq, msg, asyncContext));
+                respQueue.add(new SequenceMessage(this.reqSeq, msg, asyncContext, respQueue.size()));
 
                 if (!seqCtx.hasTooManyPendingResponses()) {
                     while (!respQueue.isEmpty()) {
                         final SequenceMessage queuedResponse = respQueue.peek();
-
+                        LOG.info(" required qeq: {}, response: {}", seqCtx.nextRequiredSequence, queuedResponse.toString());
                         if (queuedResponse.sequence != seqCtx.getNextRequiredSequence()) {
                             break;
                         }
@@ -187,16 +195,13 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
     @Override
     public Response<AppendEntriesResponse> appendEntries(AppendEntriesRequest request) {
         final AsyncContext asyncContext = RpcContext.startAsync();
-        LOG.info("receive request");
         SequenceRequestContext context = getSequenceRequestContext(request.getGroupId(), request.getPeerId());
         int seq = context.getAndIncreSequence();
-
-        Message message = getNode(request).handleAppendEntriesRequest(request,
-                new SequenceRequestCallback(request.getGroupId(), request.getPeerId(), seq, asyncContext));
+        SequenceRequestCallback sequenceRequestCallback =
+                new SequenceRequestCallback(request.getGroupId(), request.getPeerId(), seq, asyncContext);
+        Message message = getNode(request).handleAppendEntriesRequest(request, sequenceRequestCallback);
         if (message != null) {
-            asyncContext.signalContextSwitch();
-            LOG.info("response: {}", message);
-            asyncContext.write(checkResponse(message));
+            sequenceRequestCallback.sendResponse(message);
         }
         return null;
     }
