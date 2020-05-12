@@ -195,7 +195,6 @@ public class Replicator {
             } else {
                 this.state = State.Probe;
                 int reqSeq = getAndIncrementReqSeq();
-                LOG.info("replicator: {}, send probe request, seq is {}", this.options.getPeerId(), reqSeq);
                 CompletableFuture<?> future = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {
@@ -208,7 +207,6 @@ public class Replicator {
                     }
                 });
                 addFlying(this.nextIndex, 0, reqSeq, future);
-                LOG.warn("send probe request end");
             }
         } catch (Exception e) {
             LOG.error("", e);
@@ -289,7 +287,6 @@ public class Replicator {
                 if (flying == null) {
                     continue;
                 }
-                LOG.info(flying.toString());//TODO flying LOG
                 if (flying.seq != rpcResponse.seq) {
                     //TODO 不知道什么情况下会这样 and block
                 }
@@ -389,7 +386,6 @@ public class Replicator {
     }
 
     private long getNextSendIndex() {
-        LOG.info("appendEntriesInFly size: {}", this.appendEntriesInFly.size());
         if (this.appendEntriesInFly.isEmpty()) {
             return this.nextIndex;
         }
@@ -407,7 +403,6 @@ public class Replicator {
             long prevSendIndex = -1;
             while (true) {
                 long nextSendIndex = getNextSendIndex();
-                LOG.info("nextSendIndex : {}", nextSendIndex);
                 if (nextSendIndex > prevSendIndex) {
                     if (sendEntries(nextSendIndex)) {
                         prevSendIndex = nextSendIndex;
@@ -470,7 +465,6 @@ public class Replicator {
         //TODO send request
         final long monotonicSendTimeMs = Utils.monotonicMs();
         final int seq = getAndIncrementReqSeq();
-        LOG.info("sendEntries :{}, request: {}", nextSendingIndex, request);
         CompletableFuture future = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
             @Override
             public void run(Status status) {

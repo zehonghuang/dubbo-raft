@@ -80,9 +80,9 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
     }
 
     public boolean commitAt(long firstLogIndex, long lastLogIndex, PeerId peerId) {
-        LOG.info("into commit at first :{}, last: {}, peerId: {}", firstLogIndex, lastLogIndex, peerId);
         this.writeLock.lock();
         long lastCommittedIndex = 0;
+        LOG.info("into commit at pendingIndex: {}, queue size: {}, first :{}, last: {}, peerId: {}", this.pendingIndex, this.pendingMetaQueue.size(), firstLogIndex, lastLogIndex, peerId);
         try {
             if (this.pendingIndex == 0) {
                 return false;// 未被初始化
@@ -97,7 +97,6 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
             for (long i = startAt; i <= lastLogIndex; i++) {
                 Ballot ballot = pendingMetaQueue.get((int) (i - this.pendingIndex));//TODO java.lang.IndexOutOfBoundsException: Index=0, Offset=10, Pos=14
                 ballot.grant(peerId);
-                LOG.info("peer: {}, log index: {} grant 1", peerId.toString(), i);
                 if (ballot.isGranted()) {
                     lastCommittedIndex = i;
                 }
@@ -106,6 +105,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
                 return true;
             }
             this.pendingMetaQueue.removeFromFirst((int) (lastCommittedIndex - this.pendingIndex) + 1);
+            LOG.warn("Committed log fromIndex={}, toIndex={}.", this.pendingIndex, lastCommittedIndex);
             this.pendingIndex = lastCommittedIndex + 1;
             this.lastCommittedIndex = lastCommittedIndex;
         } finally {
@@ -117,9 +117,6 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
 
     public boolean setLastCommittedIndex(final long lastCommittedIndex) {
         boolean doUnlock = true;
-        if (lastCommittedIndex > 0) {
-            LOG.info("lastCommittedIndex: {}, this.lastCommittedIndex: {}", lastCommittedIndex, this.lastCommittedIndex);
-        }
         this.writeLock.lock();
         try {
             // 只有leader才满足这个条件
@@ -146,7 +143,6 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
     }
 
     public boolean appendPendingTask(final Configuration conf, final Configuration oldConf, final Callback callback) {
-        LOG.info("executeTasks -> appendPendingTask");
         final Ballot bl = new Ballot();
         if (!bl.init(conf)) {
             return false;

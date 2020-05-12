@@ -359,13 +359,10 @@ public class LogManagerImpl implements LogManager {
         if (!logsInMemory.isEmpty()) {
             final long firstIndex = this.logsInMemory.peekFirst().getId().getIndex();
             final long lastIndex = this.logsInMemory.peekLast().getId().getIndex();
-            LOG.info("logsInMemory size: {}, index: {}, first index: {}, last index: {}", logsInMemory.size(),
-                    index, firstIndex, lastIndex);
             if (index <= lastIndex && index >= firstIndex) {
                 return logsInMemory.get((int) (index - firstIndex));
             }
         }
-        LOG.info("logsInMemory is empty!!!");
         return null;
     }
 
@@ -433,11 +430,9 @@ public class LogManagerImpl implements LogManager {
         if (first.getId().getIndex() == 0) {
             for (LogEntry entry : entries) {
                 entry.getId().setIndex(++this.lastLogIndex);
-                LOG.info("new entry log id: {}", entry.getId());
             }
             return true;
         } else {
-            LOG.warn("fist: {}, last: {}", first.getId(), ArrayDeque.peekLast(entries).getId());
             if (first.getId().getIndex() > this.lastLogIndex + 1) {
                 Utils.runInThread(() -> {
                     doneCallback.run(new Status(10001, ""));

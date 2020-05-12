@@ -79,8 +79,6 @@ public class NodeImpl implements Node {
     private RaftMetaStorage metaStorage;
     private ReplicatorGroup replicatorGroup;
 
-    private AtomicInteger lockcount = new AtomicInteger();
-
 
     public NodeImpl(String groupId, PeerId serverId) {
         this.groupId = groupId;
@@ -395,7 +393,6 @@ public class NodeImpl implements Node {
             }
         } finally {
             this.writeLock.unlock();
-            LOG.warn("handleRequestVoteResponse end");
         }
     }
 
@@ -421,9 +418,7 @@ public class NodeImpl implements Node {
                 return;
             }
 
-            LOG.info("FollowerFlushDoneCallback[term: {}, node curr term: {}]", this.term, this.node.currTerm);
             AppendEntriesResponse response = new AppendEntriesResponse();
-            LOG.warn("readLock.lock();");
             this.node.readLock.lock();
 
             try {
@@ -434,14 +429,12 @@ public class NodeImpl implements Node {
                     return;
                 }
             } finally {
-                LOG.info("this.node.readLock.unlock();");
                 this.node.readLock.unlock();
             }
 
             response.setSuccess(true);
             response.setTerm(this.node.currTerm);
             this.node.ballotBox.setLastCommittedIndex(this.committedIndex);
-            LOG.info("response: {}, committedIndex: {}", response, this.committedIndex);
             callback.sendResponse(response);
         }
     }
@@ -449,7 +442,6 @@ public class NodeImpl implements Node {
     public Message handleAppendEntriesRequest(final AppendEntriesRequest request, RequestCallback callback) {
         boolean doUnlock = true;
         this.writeLock.lock();
-        LOG.warn("writeLock.lock(): {}", lockcount.incrementAndGet());
         final int entriesCount = request.getEntriesCount();
         try {
             if (!this.state.isActive()) {
@@ -475,7 +467,6 @@ public class NodeImpl implements Node {
             long reqPrevIndex = request.getPreLogIndex();
             long reqPrevTerm = request.getPrevLogTerm();
             long localPervTerm = this.logManager.getTerm(reqPrevIndex);
-            LOG.warn("reqPrevIndex: {}, reqPrevTerm: {}, localPervTerm: {}, lockcount: {}", reqPrevIndex, reqPrevTerm, localPervTerm, this.lockcount.get());
             if (reqPrevTerm != localPervTerm) {
                 AppendEntriesResponse response = new AppendEntriesResponse();
                 response.setSuccess(false);
@@ -483,14 +474,11 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 return response;
             }
-            LOG.warn("reqPrevTerm != localPervTerm, {}", this.lockcount.get());
             if (entriesCount == 0) {
                 AppendEntriesResponse response = new AppendEntriesResponse();
                 response.setSuccess(true);
                 response.setTerm(this.currTerm);
-                LOG.warn("response.setTerm(this.currTerm);, {}", this.lockcount.get());
                 response.setLastLogLast(this.logManager.getLastLogIndex());
-                LOG.warn("entriesCount == 0;  writeLock.unlock(); {}", lockcount.get());
                 doUnlock = false;
                 this.writeLock.unlock();
                 this.ballotBox.setLastCommittedIndex(request.getCommittedIndex());
@@ -511,7 +499,6 @@ public class NodeImpl implements Node {
             LOG.error("", e);
         }finally {
             if (doUnlock) {
-                LOG.warn("writeLock.unlock(); {}", lockcount.get());
                 this.writeLock.unlock();
             }
         }
@@ -524,7 +511,7 @@ public class NodeImpl implements Node {
 
     private void handleElectionTimeout() {
         if(!this.leaderId.isEmpty()) {
-            LOG.info("peer {} election time out, begin pre Vote, my leader is {}, lock count: {} state: {}", this.serverId, this.leaderId, this.lockcount.get(), this.readWriteLock.toString());
+            LOG.info("peer {} election time out, begin pre Vote, my leader is {}", this.serverId, this.leaderId);
         } else {
             LOG.info("leeader is empty!!!");
         }

@@ -279,6 +279,7 @@ public class SegmentList<T> {
             this.size -= firstSeg.removeFromFirst(toIndexInSeg);
             this.firstOffset = firstSeg.offset;
             if (firstSeg.isEmpty()) {
+                this.segments.pollFirst();
                 this.firstOffset = 0;
             }
         } else {
