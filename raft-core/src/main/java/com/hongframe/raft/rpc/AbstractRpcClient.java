@@ -92,10 +92,7 @@ public abstract class AbstractRpcClient {
             }
         } catch (Exception e) {
             if (isAsync) {
-                future = CompletableFuture.supplyAsync(() -> new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())))
-                        .whenComplete((response, ex) -> {
-                            callBack.invoke(response);
-                        });
+                Utils.runInThread(() -> callBack.invoke(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString()))));
             } else {
                 callBack.invoke(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())));
             }

@@ -213,7 +213,10 @@ public class Replicator {
                         onAppendEntriesReturned(Replicator.this.self, status, request, appendEntriesResponse, reqSeq, monotonicSendTimeMs);
                     }
                 });
-                addFlying(this.nextIndex, 0, reqSeq, future);
+                if(future != null) {
+                    addFlying(this.nextIndex, 0, reqSeq, future);
+                }
+
             }
         } catch (Exception e) {
             LOG.error("", e);
@@ -534,7 +537,9 @@ public class Replicator {
         try {
             for (final FlyingAppendEntries inflight : r.appendEntriesInFly) {
                 if (inflight != r.fiying) {
-                    inflight.future.cancel(true);
+                    if(inflight.future != null) {
+                        inflight.future.cancel(true);
+                    }
                 }
             }
             r.heartbeatTimer.cancel(true);
