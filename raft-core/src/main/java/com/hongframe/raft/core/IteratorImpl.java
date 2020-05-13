@@ -51,7 +51,7 @@ public class IteratorImpl {
                 this.currEntry = this.logManager.getEntry(this.currIndex);
                 if (this.currEntry == null) {
                     //TODO error
-
+                    LOG.warn("currEntry is null, currIndex: {}, committedIndex: {}", this.currIndex, this.committedIndex);
                 }
                 this.applyingIndex.set(this.currIndex);
             }

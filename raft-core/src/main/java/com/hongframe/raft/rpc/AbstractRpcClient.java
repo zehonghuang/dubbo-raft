@@ -4,8 +4,10 @@ import com.hongframe.raft.callback.Invokeable;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.RpcRemoteOptions;
+import com.hongframe.raft.util.Utils;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.ThreadUtils;
 import org.apache.dubbo.config.ReferenceConfig;
 import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.service.GenericService;
@@ -89,11 +91,13 @@ public abstract class AbstractRpcClient {
                 });
             }
         } catch (Exception e) {
-            LOG.error("{}", e.getMessage());
             if (isAsync) {
-                callBack.invoke(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())));
+                future = CompletableFuture.supplyAsync(() -> new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())))
+                        .whenComplete((response, ex) -> {
+                            callBack.invoke(response);
+                        });
             } else {
-                future = CompletableFuture.completedFuture(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())));
+                callBack.invoke(new RpcRequests.Response(new RpcRequests.ErrorResponse(10001, e.toString())));
             }
         }
         return future;

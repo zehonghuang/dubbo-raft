@@ -31,7 +31,7 @@ public class CounterCallback extends ResponseCallbackAdapter {
         asyncContext.write(new RpcRequests.Response<>(this.value));
     }
 
-    public void success(final long value){
+    public void success(final long value) {
         final ValueResponse response = new ValueResponse();
         response.setValue(value);
         response.setSuccess(true);

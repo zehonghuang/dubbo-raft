@@ -164,7 +164,6 @@ public class AppendEntriesRpcImpl implements AppendEntriesRpc {
                 if (!seqCtx.hasTooManyPendingResponses()) {
                     while (!respQueue.isEmpty()) {
                         final SequenceMessage queuedResponse = respQueue.peek();
-                        LOG.info(" required qeq: {}, response: {}", seqCtx.nextRequiredSequence, queuedResponse.toString());
                         if (queuedResponse.sequence != seqCtx.getNextRequiredSequence()) {
                             break;
                         }

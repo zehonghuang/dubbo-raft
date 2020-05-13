@@ -346,6 +346,7 @@ public class NodeImpl implements Node {
                 doUnlock = true;
                 this.writeLock.lock();
                 if (this.currTerm != request.getTerm()) {
+                    LOG.warn("this.currTerm != request.getTerm()");
                     break;
                 }
                 boolean isOk = new LogId(request.getTerm(), request.getLastLogIndex()).compareTo(lastLogId) >= 0;
@@ -481,7 +482,7 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 doUnlock = false;
                 this.writeLock.unlock();
-                this.ballotBox.setLastCommittedIndex(request.getCommittedIndex());
+                this.ballotBox.setLastCommittedIndex(Math.min(request.getCommittedIndex(), reqPrevIndex));
                 return response;
             }
 
@@ -613,7 +614,7 @@ public class NodeImpl implements Node {
                 voteRequest.setTerm(this.currTerm + 1);
                 voteRequest.setLastLogIndex(lastLogId.getIndex());
                 voteRequest.setLastLogTerm(lastLogId.getTerm());
-                LOG.info("request pre vote to {}", peerId);
+                LOG.info("request pre vote to {}, {}", peerId, voteRequest);
                 this.rpcClient.requestVote(peerId, voteRequest, new PreVoteResponseCallback(this.currTerm, peerId, voteRequest));
             }
 

@@ -33,10 +33,8 @@ public class ObjectLock<T> {
 
         @Override
         public void release() {
-            if(this.owner == Thread.currentThread()) {
-                super.release();
-                this.owner = null;
-            }
+            super.release();
+            this.owner = null;
         }
     };
 

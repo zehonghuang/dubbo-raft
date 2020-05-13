@@ -3,6 +3,7 @@ package com.hongframe.raft.storage.impl;
 import com.hongframe.raft.FSMCaller;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.conf.ConfigurationManager;
+import com.hongframe.raft.core.Replicator;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
@@ -465,7 +466,6 @@ public class LogManagerImpl implements LogManager {
             this.arg = arg;
             this.errorCode = errorCode;
         }
-
     }
 
     @Override
@@ -483,6 +483,7 @@ public class LogManagerImpl implements LogManager {
             }
             long waitid = this.nextWaitId++;
             this.waitMap.put(waitid, wm);
+            LOG.warn(waitMap.toString());
             return waitid;
         } finally {
             this.writeLock.unlock();
