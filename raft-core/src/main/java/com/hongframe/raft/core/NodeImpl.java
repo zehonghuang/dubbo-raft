@@ -222,7 +222,7 @@ public class NodeImpl implements Node {
     }
 
     private int randomTimeout(final int timeoutMs) {
-        return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs +  + this.raftOptions.getMaxElectionDelayMs());
+        return ThreadLocalRandom.current().nextInt(timeoutMs, timeoutMs + +this.raftOptions.getMaxElectionDelayMs());
     }
 
     private int heartbeatTimeout(final int electionTimeout) {
@@ -231,12 +231,11 @@ public class NodeImpl implements Node {
 
     public Message handlePreVoteRequest(final RequestVoteRequest request) {
         boolean doUnlock = true;
-        LOG.warn("form peerId: {}", request.getServerId());
         this.writeLock.lock();
-        LOG.info("from {} pre vote request, term: {}", request.getServerId(), request.getTerm());
         try {
 
             if (!this.state.isActive()) {
+                LOG.warn("Node {} is not in active state, currTerm={}.", getNodeId(), this.currTerm);
                 return null;
             }
             final PeerId candidateId = new PeerId();
@@ -247,6 +246,10 @@ public class NodeImpl implements Node {
 
             do {
                 if (this.leaderId != null && !this.leaderId.isEmpty() && isCurrentLeaderValid()) {
+                    LOG.info(
+                            "Node {} ignore PreVoteRequest from {}, term={}, currTerm={}, because the leader {}'s lease is still valid.",
+                            getNodeId(), request.getServerId(), request.getTerm(), this.currTerm, this.leaderId);
+
                     break;
                 }
                 if (request.getTerm() < this.currTerm) {
@@ -259,21 +262,24 @@ public class NodeImpl implements Node {
                 this.writeLock.unlock();
 
                 final LogId lastLogId = this.logManager.getLastLogId(true);
-                LOG.info("last log id: {}", lastLogId);
 
                 doUnlock = true;
                 this.writeLock.lock();
 
                 final LogId requestLastLogId = new LogId(request.getTerm(), request.getLastLogIndex());
-
                 granted = requestLastLogId.compareTo(lastLogId) >= 0;
+
+                LOG.info(
+                        "Node {} received PreVoteRequest from {}, term={}, currTerm={}, granted={}, requestLastLogId={}, lastLogId={}.",
+                        getNodeId(), request.getServerId(), request.getTerm(), this.currTerm, granted, requestLastLogId,
+                        lastLogId);
+
             } while (false);//为了break出来
 
             RequestVoteResponse response = new RequestVoteResponse();
             response.setGranted(granted);
             response.setTerm(this.currTerm);
             response.setPreVote(true);
-            LOG.info("are you grant for {} ? {}", request.getServerId(), granted);
             return response;
         } finally {
             if (doUnlock) {
@@ -284,28 +290,32 @@ public class NodeImpl implements Node {
     }
 
     public void handlePreVoteResponse(PeerId peerId, long term, RequestVoteResponse voteResponse) {
-        LOG.info("peer {} grant to you? {}", peerId, voteResponse.getGranted());
         boolean doUnlock = true;
         this.writeLock.lock();
         try {
             if (this.state != State.STATE_FOLLOWER) {
                 //不再是follower，不必要处理预选投票
-                LOG.warn("state chanege to {}", this.state);
+                LOG.warn("Node {} received invalid PreVoteResponse from {}, state not in STATE_FOLLOWER but {}.",
+                        getNodeId(), peerId, this.state);
                 return;
             }
             if (this.currTerm != term) {
                 //currTerm节点任期变了，无效
-                LOG.warn("cuurTerm: {}", this.currTerm);
+                LOG.warn("Node {} received invalid PreVoteResponse from {}, term={}, currTerm={}.", getNodeId(),
+                        peerId, term, this.currTerm);
                 return;
             }
             if (voteResponse.getTerm() > this.currTerm) {
+                LOG.warn("Node {} received invalid PreVoteResponse from {}, term {}, expect={}.", getNodeId(), peerId,
+                        voteResponse.getTerm(), this.currTerm);
                 stepDown(voteResponse.getTerm(), new Status(10001, "voteResponse.getTerm() > this.currTerm"));
                 return;
             }
+            LOG.info("Node {} received PreVoteResponse from {}, term={}, granted={}.", getNodeId(), peerId,
+                    voteResponse.getTerm(), voteResponse.getGranted());
             if (voteResponse.getGranted()) {
                 this.prevoteCtx.grant(peerId);
                 if (this.prevoteCtx.isGranted()) {
-                    LOG.info("peer {} granted pre vote >>> electSelf()", this.serverId);
                     doUnlock = false;
                     electSelf();
                 }
@@ -331,11 +341,15 @@ public class NodeImpl implements Node {
 
             do {
                 if (request.getTerm() >= this.currTerm) {
+                    LOG.info("Node {} received RequestVoteRequest from {}, term={}, currTerm={}.", getNodeId(),
+                            request.getServerId(), request.getTerm(), this.currTerm);
                     if (request.getTerm() > this.currTerm) {
                         LOG.info(request.toString());
                         stepDown(request.getTerm(), new Status(10001, "requset vote request: .getTerm() > this.currTerm"));
                     }
                 } else {
+                    LOG.info("Node {} ignore RequestVoteRequest from {}, term={}, currTerm={}.", getNodeId(),
+                            request.getServerId(), request.getTerm(), this.currTerm);
                     break;
                 }
                 doUnlock = false;
@@ -346,7 +360,7 @@ public class NodeImpl implements Node {
                 doUnlock = true;
                 this.writeLock.lock();
                 if (this.currTerm != request.getTerm()) {
-                    LOG.warn("this.currTerm != request.getTerm()");
+                    LOG.warn("Node {} raise term {} when get lastLogId.", getNodeId(), this.currTerm);
                     break;
                 }
                 boolean isOk = new LogId(request.getTerm(), request.getLastLogIndex()).compareTo(lastLogId) >= 0;
@@ -355,7 +369,6 @@ public class NodeImpl implements Node {
                     this.voteId = candidateId.copy();
                     this.metaStorage.setTermAndVotedFor(this.currTerm, this.voteId);
                 }
-                LOG.info("candidateId: {}, voteId: {}", candidateId, this.voteId);
             } while (false);
 
             RequestVoteResponse response = new RequestVoteResponse();
@@ -380,11 +393,15 @@ public class NodeImpl implements Node {
                 return;
             }
             if (this.currTerm != term) {
+                LOG.warn("Node {} received stale RequestVoteResponse from {}, term={}, currTerm={}.", getNodeId(),
+                        peerId, term, this.currTerm);
                 return;
             }
-            LOG.info("peer id {}, {}", peerId, response.toString());
             if (response.getTerm() > this.currTerm) {
+                LOG.warn("Node {} received invalid RequestVoteResponse from {}, term={}, expect={}.", getNodeId(),
+                        peerId, response.getTerm(), this.currTerm);
                 stepDown(response.getTerm(), new Status(10001, "request vote response: .getTerm() > this.currTerm"));
+                return;
             }
             if (response.getGranted()) {
                 this.voteCtx.grant(peerId);
@@ -459,7 +476,7 @@ public class NodeImpl implements Node {
                 return response;
             }
             if (this.leaderId == null || this.leaderId.isEmpty()) {
-                if(this.currTerm != request.getTerm()) {
+                if (this.currTerm != request.getTerm()) {
                     this.currTerm = request.getTerm();
                 }
                 this.leaderId = peerId;
@@ -485,8 +502,8 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 doUnlock = false;
                 this.writeLock.unlock();
-                if(this.nodeId.getPeerId().getPort() == 8890) {
-                    LOG.warn("setLastCommittedIndex: {}, reqPrevIndex: {}",request.getCommittedIndex(), reqPrevIndex);
+                if (this.nodeId.getPeerId().getPort() == 8890) {
+                    LOG.warn("setLastCommittedIndex: {}, reqPrevIndex: {}", request.getCommittedIndex(), reqPrevIndex);
                 }
                 this.ballotBox.setLastCommittedIndex(Math.min(request.getCommittedIndex(), reqPrevIndex));
                 return response;
@@ -504,7 +521,7 @@ public class NodeImpl implements Node {
             this.logManager.appendEntries(entries, new FollowerFlushDoneCallback(entries, callback, request, this.currTerm, this));
         } catch (Exception e) {
             LOG.error("", e);
-        }finally {
+        } finally {
             if (doUnlock) {
                 this.writeLock.unlock();
             }
@@ -517,10 +534,8 @@ public class NodeImpl implements Node {
     }
 
     private void handleElectionTimeout() {
-        if(!this.leaderId.isEmpty()) {
+        if (!this.leaderId.isEmpty()) {
             LOG.info("peer {} election time out, lastCommittedIndex: {}, begin pre Vote, my leader is {}", this.serverId, this.ballotBox.getLastCommittedIndex(), this.leaderId);
-        } else {
-            LOG.info("leeader is empty!!!");
         }
         boolean doUnlock = true;
         this.writeLock.lock();
@@ -590,6 +605,8 @@ public class NodeImpl implements Node {
 
     private void preVote() {
         long oldTerm;
+
+        LOG.info("Node {} curr term {} start pre-Vote", getNodeId(), this.currTerm);
         try {
             oldTerm = this.currTerm;
         } finally {
@@ -602,6 +619,7 @@ public class NodeImpl implements Node {
         this.writeLock.lock();
         try {
             if (this.currTerm != oldTerm) {
+                LOG.warn("Node {} raise term {} when get lastLogId.", getNodeId(), this.currTerm);
                 return;
             }
             this.prevoteCtx.init(this.conf.getConf());
@@ -620,7 +638,7 @@ public class NodeImpl implements Node {
                 voteRequest.setTerm(this.currTerm + 1);
                 voteRequest.setLastLogIndex(lastLogId.getIndex());
                 voteRequest.setLastLogTerm(lastLogId.getTerm());
-                LOG.info("request pre vote to {}, {}", peerId, voteRequest);
+                LOG.info("Node {} curr term {} pre-Vote send to {}", getNodeId(), this.currTerm + 1, peerId);
                 this.rpcClient.requestVote(peerId, voteRequest, new PreVoteResponseCallback(this.currTerm, peerId, voteRequest));
             }
 
@@ -639,6 +657,8 @@ public class NodeImpl implements Node {
 
     private void becomeLeader() {
         try {
+            LOG.info("Node {} become leader of group, term={}, conf={}, oldConf={}.", getNodeId(), this.currTerm,
+                    this.conf.getConf(), this.conf.getOldConf());
             this.state = State.STATE_LEADER;
             this.leaderId = this.serverId.copy();
             this.voteTimer.stop();
@@ -647,12 +667,12 @@ public class NodeImpl implements Node {
             this.replicatorGroup.resetTerm(this.currTerm);
             this.ballotBox.resetPendingIndex(logManager.getLastLogIndex() + 1);
             for (PeerId peerId : this.conf.getConf().getPeers()) {
+                LOG.info("Node {} add a learner replicator, term={}, peer={}.", getNodeId(), this.currTerm, peerId);
                 if (peerId.equals(this.serverId)) {
                     continue;
                 }
                 this.replicatorGroup.addReplicator(peerId);
             }
-            LOG.info("init replicatorGroup end");
 
             //TODO 这是要去掉的，非法操作
             this.nodeOptions.getStateMachine().onLeaderStart(this.currTerm);
@@ -728,15 +748,15 @@ public class NodeImpl implements Node {
     }
 
     private void electSelf() {
-        LOG.info("into electSelf() {}", this.state);
         long oldTerm;
         try {
+            LOG.info("Node {} start vote and grant vote self, term={}.", getNodeId(), this.currTerm);
             if (!this.conf.contains(this.serverId)) {
                 //该节点被移除
                 return;
             }
             if (this.state == State.STATE_FOLLOWER) {
-                LOG.info("stop electionTimer");
+                LOG.debug("Node {} stop election timer, term={}.", getNodeId(), this.currTerm);
                 this.electionTimer.stop();
             }
             this.leaderId = PeerId.emptyPeer();
@@ -744,6 +764,7 @@ public class NodeImpl implements Node {
             this.state = State.STATE_CANDIDATE;
             this.currTerm++;
             this.voteId = this.serverId.copy();
+            LOG.debug("Node {} start vote timer, term={} .", getNodeId(), this.currTerm);
             this.voteTimer.start();
             this.voteCtx.init(this.conf.getConf());
             oldTerm = this.currTerm;
@@ -756,6 +777,7 @@ public class NodeImpl implements Node {
         this.writeLock.lock();
         try {
             if (this.currTerm != oldTerm) {
+                LOG.warn("Node {} raise term {} when getLastLogId.", getNodeId(), this.currTerm);
                 return;
             }
             for (PeerId peerId : this.conf.getConf().getPeers()) {
@@ -764,6 +786,7 @@ public class NodeImpl implements Node {
                 }
 
                 if (!this.rpcClient.connect(peerId)) {
+                    LOG.warn("Node {} channel init failed, address={}.", getNodeId(), peerId.getEndpoint());
                     continue;
                 }
                 RequestVoteRequest request = new RequestVoteRequest();
@@ -773,9 +796,9 @@ public class NodeImpl implements Node {
                 request.setTerm(this.currTerm);
                 request.setLastLogTerm(lastLogId.getTerm());
                 request.setLastLogIndex(lastLogId.getIndex());
-
                 RequestVoteResponseCallback callback = new RequestVoteResponseCallback(this.currTerm, peerId, request);
-                LOG.info(request.toString());
+
+                LOG.info("Node {} request vote to {}, term={}.", getNodeId(), peerId, this.currTerm);
                 this.rpcClient.requestVote(peerId, request, callback);
             }
             this.metaStorage.setTermAndVotedFor(this.currTerm, this.serverId);
@@ -786,7 +809,6 @@ public class NodeImpl implements Node {
 
         } finally {
             this.writeLock.unlock();
-            LOG.warn("electSelf end");
         }
 
     }

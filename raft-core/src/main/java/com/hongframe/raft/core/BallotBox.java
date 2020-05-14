@@ -128,8 +128,9 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
             }
             if (lastCommittedIndex > this.lastCommittedIndex) {
                 this.lastCommittedIndex = lastCommittedIndex;
-                this.writeLock.unlock();
                 doUnlock = false;
+                this.writeLock.unlock();
+                LOG.info("i am unlock, then onCommitted: {}", lastCommittedIndex);
                 this.caller.onCommitted(lastCommittedIndex);
             }
         } catch (Exception e) {

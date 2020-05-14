@@ -225,6 +225,7 @@ public class SegmentList<T> {
             this.size -= removed;
             this.firstOffset = firstSeg.offset;
             if (firstSeg.isEmpty()) {
+                this.segments.pollFirst();
                 firstSeg = getFirst();
                 this.firstOffset = 0;
             }
@@ -253,6 +254,7 @@ public class SegmentList<T> {
             }
             this.size -= removed;
             if (lastSeg.isEmpty()) {
+                this.segments.pollLast();
                 lastSeg = getLast();
             }
         }

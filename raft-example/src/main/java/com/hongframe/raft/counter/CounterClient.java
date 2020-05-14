@@ -29,10 +29,11 @@ public class CounterClient {
         PeerId leader = RouteTable.getInstance().selectLeader(CounterRaftServerStartup.GROUP);
 
         IncrementAndGetRequest request = new IncrementAndGetRequest();
-        request.setValue(11111);
+
         System.out.println(leader);
         if(clientService.connect(leader)) {
             for(int i = 0; i < 10; i++) {
+                request.setValue((i + 1) * 100);
                 clientService.invokeAsync(leader, request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {

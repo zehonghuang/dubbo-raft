@@ -23,7 +23,6 @@ public class CounterServiceImpl implements CounterService {
 
     private static final Logger LOG = LoggerFactory.getLogger(CounterServiceImpl.class);
 
-    private AtomicLong value = new AtomicLong();
     private CounterRaftServerStartup startup;
 
     public CounterServiceImpl(CounterRaftServerStartup startup) {
@@ -39,7 +38,7 @@ public class CounterServiceImpl implements CounterService {
         CounterCallback counterCallback = new CounterCallback(asyncContext);
         Task task = new Task();
         task.setCallback(counterCallback);
-        task.setData(ByteBuffer.allocate(64).putLong(value.get()));
+        task.setData(ByteBuffer.allocate(64).putLong(request.getValue()));
         startup.getNode().apply(task);
 
         return null;

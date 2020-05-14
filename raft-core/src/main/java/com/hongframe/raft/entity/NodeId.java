@@ -63,6 +63,15 @@ public class NodeId implements Copiable<NodeId>, java.io.Serializable {
     }
 
     @Override
+    public String toString() {
+        return "NodeId<" +
+                "groupId='" + groupId + '\'' +
+                ", peerId=" + peerId +
+                ", str='" + str + '\'' +
+                '>';
+    }
+
+    @Override
     public NodeId copy() {
         return new NodeId(this.groupId, this.peerId);
     }

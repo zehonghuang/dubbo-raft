@@ -434,9 +434,7 @@ public class Replicator {
     }
 
     private long getNextSendIndex() {
-        if (this.options.getPeerId().getPort() == 8890) {
-            LOG.warn("appendEntriesInFly: {}, send index: {} ", this.appendEntriesInFly.size(), this.fiying);
-        }
+        LOG.warn("appendEntriesInFly size: {}, nextIndex: {}, send index: {} ", this.appendEntriesInFly.size(), this.nextIndex, this.fiying);
         if (this.appendEntriesInFly.isEmpty()) {
             return this.nextIndex;
         }
@@ -500,7 +498,6 @@ public class Replicator {
         request.setCommittedIndex(this.options.getBallotBox().getLastCommittedIndex());
 
         final int maxEntriesSize = this.options.getRaftOptions().getMaxEntriesSize();
-        LOG.info(request.toString());
         List<OutLogEntry> entries = new LinkedList<>();
         LOG.warn("prepareEntry start!!!");
         for (int i = 0; i < maxEntriesSize; i++) {
