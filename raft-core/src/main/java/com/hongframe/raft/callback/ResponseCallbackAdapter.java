@@ -34,7 +34,6 @@ public abstract class ResponseCallbackAdapter implements ResponseCallback {
             setResponse(message);
             run(Status.OK());
         } else {
-            LOG.info(response.toString());
             run(new Status(response.getError().getErrorCode(), response.getError().getErrorMsg()));
         }
     }

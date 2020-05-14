@@ -340,7 +340,6 @@ public class LogManagerImpl implements LogManager {
                 return null;
             }
             LogEntry entry = getEntryFromMemory(index);
-            LOG.info("entry is null? {}", entry == null);
             if (entry != null) {
                 return entry;
             }

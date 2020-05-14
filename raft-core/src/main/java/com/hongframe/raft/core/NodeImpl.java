@@ -459,6 +459,9 @@ public class NodeImpl implements Node {
                 return response;
             }
             if (this.leaderId == null || this.leaderId.isEmpty()) {
+                if(this.currTerm != request.getTerm()) {
+                    this.currTerm = request.getTerm();
+                }
                 this.leaderId = peerId;
                 LOG.info("this leader id: {}", this.leaderId);
             }
@@ -482,6 +485,9 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 doUnlock = false;
                 this.writeLock.unlock();
+                if(this.nodeId.getPeerId().getPort() == 8890) {
+                    LOG.warn("setLastCommittedIndex: {}, reqPrevIndex: {}",request.getCommittedIndex(), reqPrevIndex);
+                }
                 this.ballotBox.setLastCommittedIndex(Math.min(request.getCommittedIndex(), reqPrevIndex));
                 return response;
             }
@@ -512,7 +518,7 @@ public class NodeImpl implements Node {
 
     private void handleElectionTimeout() {
         if(!this.leaderId.isEmpty()) {
-            LOG.info("peer {} election time out, begin pre Vote, my leader is {}", this.serverId, this.leaderId);
+            LOG.info("peer {} election time out, lastCommittedIndex: {}, begin pre Vote, my leader is {}", this.serverId, this.ballotBox.getLastCommittedIndex(), this.leaderId);
         } else {
             LOG.info("leeader is empty!!!");
         }

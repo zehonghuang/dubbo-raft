@@ -100,6 +100,17 @@ public class Replicator {
         }
 
         @Override
+        public String toString() {
+            return "RpcResponse{" +
+                    "status=" + status +
+                    ", request=" + request +
+                    ", response=" + response +
+                    ", rpcSendTime=" + rpcSendTime +
+                    ", seq=" + seq +
+                    '}';
+        }
+
+        @Override
         public int compareTo(RpcResponse o) {
             return Integer.compare(this.seq, o.seq);
         }
@@ -209,7 +220,6 @@ public class Replicator {
                         } else {
                             appendEntriesResponse = (AppendEntriesResponse) getResponse();
                         }
-                        LOG.warn(">>>>>>>>>>>>>>>>>>>>>>>>>> appendEntriesResponse:{}", appendEntriesResponse);
                         onAppendEntriesReturned(Replicator.this.self, status, request, appendEntriesResponse, reqSeq, monotonicSendTimeMs);
                     }
                 });
@@ -267,6 +277,10 @@ public class Replicator {
         Replicator replicator = lock.lock();
         LOG.info("replicator state is {}", this.state);
         boolean continueSendEntries = true;
+        if(this.options.getPeerId().getPort() == 8890) {
+            LOG.warn("\n{}\n{}", request, response);
+        }
+
         try {
             final PriorityQueue<RpcResponse> holdingQueue = replicator.pendingResponses;
             holdingQueue.add(new RpcResponse(status, request, response, monotonicSendTimeMs, seq));
@@ -276,6 +290,16 @@ public class Replicator {
                         this.options.getRaftOptions().getMaxReplicatorFlyingMsgs());
                 doUnlock = false;
                 continueSendEntries = false;
+                replicator.resetInflights();
+                replicator.sendEmptyEntries(false);
+                return;
+            }
+
+            if (!status.isOk()) {
+                //TODO block
+                LOG.warn("onAppendEntriesReturned status :{}", (status.isOk() ? "OK!" : "Not OK!!!"));
+                continueSendEntries = false;
+                doUnlock = false;
                 replicator.resetInflights();
                 replicator.sendEmptyEntries(false);
                 return;
@@ -314,16 +338,6 @@ public class Replicator {
                         LOG.warn("flying.startLogIndex != request.getPreLogIndex() + 1");
                         continueSendEntries = false;
                         doUnlock = false;
-                        replicator.sendEmptyEntries(false);
-                        break;
-                    }
-
-                    if (!status.isOk()) {
-                        //TODO block
-                        LOG.warn("onAppendEntriesReturned status :{}", (status.isOk() ? "OK!" : "Not OK!!!"));
-                        continueSendEntries = false;
-                        doUnlock = false;
-                        replicator.resetInflights();
                         replicator.sendEmptyEntries(false);
                         break;
                     }
@@ -380,6 +394,7 @@ public class Replicator {
                         replicator.state = State.Replicate;
                     }
                     replicator.nextIndex += request.getEntriesCount();
+                    LOG.warn("replicator.nextIndex: {}", replicator.nextIndex);
                     continueSendEntries = true;
                 } finally {
                     //TODO
@@ -469,6 +484,7 @@ public class Replicator {
         replicator.LOG.info("Node {} continueSending next index: {}, appendEntriesInFly.size(): {}, requiredNextSeq: {}",
                 replicator.options.getPeerId(), replicator.nextIndex, replicator.appendEntriesInFly.size(), replicator.requiredNextSeq);
         //TODO continueSending 未处理errCode，待完善
+        replicator.waitId = -1;
         replicator.sendEntries();
         return true;
     }

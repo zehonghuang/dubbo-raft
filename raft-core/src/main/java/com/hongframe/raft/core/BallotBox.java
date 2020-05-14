@@ -29,7 +29,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock writeLock = this.readWriteLock.writeLock();
     private final Lock readLock = this.readWriteLock.readLock();
-    private long lastCommittedIndex = 0;
+    private volatile long lastCommittedIndex = 0;
     private long pendingIndex = 0; // 小于这个index，都是已经提交了
     private final SegmentList<Ballot> pendingMetaQueue = new SegmentList<>();
 
@@ -44,7 +44,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
     public long getLastCommittedIndex() {
         this.readLock.lock();
         try {
-            return lastCommittedIndex;
+            return this.lastCommittedIndex;
         } finally {
             this.readLock.unlock();
         }
@@ -95,7 +95,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
             }
             final long startAt = Math.max(this.pendingIndex, firstLogIndex);
             for (long i = startAt; i <= lastLogIndex; i++) {
-                Ballot ballot = pendingMetaQueue.get((int) (i - this.pendingIndex));//TODO java.lang.IndexOutOfBoundsException: Index=0, Offset=10, Pos=14
+                Ballot ballot = pendingMetaQueue.get((int) (i - this.pendingIndex));
                 ballot.grant(peerId);
                 if (ballot.isGranted()) {
                     lastCommittedIndex = i;
