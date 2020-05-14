@@ -339,24 +339,19 @@ public class LogManagerImpl implements LogManager {
                 LOG.info("index: {}, this.firLogIndex: {}, this.lastLogIndex: {}", index, this.firstLogIndex, this.lastLogIndex);
                 return null;
             }
-            LOG.info("1");
             LogEntry entry = getEntryFromMemory(index);
-            LOG.info("  1 - 1");
             if (entry != null) {
                 return entry;
             }
         } finally {
             this.readLock.unlock();
         }
-        LOG.info("2");
         LogEntry entry = this.logStorage.getEntry(index);
-        LOG.info("3");
         if (entry == null) {
             //TODO error
         } else {
             LOG.info("entry log id: {}", entry.getId());
         }
-        LOG.info("4: {}", entry);
         return entry;
     }
 
@@ -364,13 +359,8 @@ public class LogManagerImpl implements LogManager {
         if (!logsInMemory.isEmpty()) {
             final long firstIndex = this.logsInMemory.peekFirst().getId().getIndex();
             final long lastIndex = this.logsInMemory.peekLast().getId().getIndex();
-            LOG.info("1 - 1: firstIndex: {}, index: {}, lastIndex: {}", firstIndex, index, lastIndex);
             if (index <= lastIndex && index >= firstIndex) {
-                try {
-                    return logsInMemory.get((int) (index - firstIndex));
-                } catch (Exception e) {
-                    LOG.error("", e);
-                }
+                return logsInMemory.get((int) (index - firstIndex));
             }
         }
         return null;

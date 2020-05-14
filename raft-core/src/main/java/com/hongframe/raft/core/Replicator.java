@@ -102,11 +102,11 @@ public class Replicator {
         @Override
         public String toString() {
             return "RpcResponse{" +
-                    "status=" + status +
+                    "seq=" + seq +
                     ", request=" + request +
                     ", response=" + response +
                     ", rpcSendTime=" + rpcSendTime +
-                    ", seq=" + seq +
+                    ", status=" + status +
                     '}';
         }
 
@@ -223,7 +223,7 @@ public class Replicator {
                         onAppendEntriesReturned(Replicator.this.self, status, request, appendEntriesResponse, reqSeq, monotonicSendTimeMs);
                     }
                 });
-                if(future != null) {
+                if (future != null) {
                     addFlying(this.nextIndex, 0, reqSeq, future);
                 }
 
@@ -277,7 +277,7 @@ public class Replicator {
         Replicator replicator = lock.lock();
         LOG.info("replicator state is {}", this.state);
         boolean continueSendEntries = true;
-        if(this.options.getPeerId().getPort() == 8890) {
+        if (this.options.getPeerId().getPort() == 8890) {
             LOG.warn("\n{}\n{}", request, response);
         }
 
@@ -308,7 +308,7 @@ public class Replicator {
             int processed = 0;
             while (!holdingQueue.isEmpty()) {
                 RpcResponse rpcResponse = holdingQueue.peek();
-
+                LOG.info("rpcResponse >>> {}", rpcResponse);
                 if (rpcResponse.seq != replicator.requiredNextSeq) {
                     LOG.info("request seq illegal : seq {}, required {}", rpcResponse.seq, replicator.requiredNextSeq);
                     if (processed > 0) {
@@ -550,7 +550,7 @@ public class Replicator {
         try {
             for (final FlyingAppendEntries inflight : r.appendEntriesInFly) {
                 if (inflight != r.fiying) {
-                    if(inflight.future != null) {
+                    if (inflight.future != null) {
                         inflight.future.cancel(true);
                     }
                 }

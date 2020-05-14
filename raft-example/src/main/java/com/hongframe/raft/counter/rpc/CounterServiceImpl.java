@@ -6,6 +6,8 @@ import com.hongframe.raft.counter.CounterRaftServerStartup;
 import com.hongframe.raft.entity.Task;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcRequests.*;
+import com.hongframe.raft.util.Bits;
+import com.hongframe.raft.util.Utils;
 import org.apache.dubbo.rpc.AsyncContext;
 import org.apache.dubbo.rpc.RpcContext;
 import org.slf4j.Logger;
@@ -38,7 +40,9 @@ public class CounterServiceImpl implements CounterService {
         CounterCallback counterCallback = new CounterCallback(asyncContext);
         Task task = new Task();
         task.setCallback(counterCallback);
-        task.setData(ByteBuffer.allocate(64).putLong(request.getValue()));
+        final byte[] v = new byte[8];
+        Bits.putLong(v, 0, request.getValue());
+        task.setData(ByteBuffer.wrap(v));
         startup.getNode().apply(task);
 
         return null;

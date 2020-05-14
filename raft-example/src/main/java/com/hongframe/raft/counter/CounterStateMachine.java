@@ -41,8 +41,10 @@ public class CounterStateMachine implements StateMachine {
                 callback = (CounterCallback) iterator.callback();
             }
             final ByteBuffer data = iterator.data();
-            value.addAndGet(data.getLong());
-
+            int remaining = data.remaining();
+            long d = data.getLong();
+            value.addAndGet(d);
+            LOG.info("data: {}, remaining: {}, value: {}", d, remaining, value.get());
             if (callback != null) {
                 callback.success(value.get());
                 callback.run(Status.OK());
