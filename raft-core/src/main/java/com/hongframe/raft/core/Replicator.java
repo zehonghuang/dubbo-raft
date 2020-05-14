@@ -277,14 +277,10 @@ public class Replicator {
         Replicator replicator = lock.lock();
         LOG.info("replicator state is {}", this.state);
         boolean continueSendEntries = true;
-        if (this.options.getPeerId().getPort() == 8890) {
-            LOG.warn("\n{}\n{}", request, response);
-        }
 
         try {
             final PriorityQueue<RpcResponse> holdingQueue = replicator.pendingResponses;
             holdingQueue.add(new RpcResponse(status, request, response, monotonicSendTimeMs, seq));
-            LOG.info("pendingResponses size: {}", holdingQueue.size());
             if (holdingQueue.size() > this.options.getRaftOptions().getMaxReplicatorFlyingMsgs()) {
                 LOG.info("pendingResponses size: {} more than Max Replicator Flying Msgs: {}", holdingQueue.size(),
                         this.options.getRaftOptions().getMaxReplicatorFlyingMsgs());
@@ -308,7 +304,6 @@ public class Replicator {
             int processed = 0;
             while (!holdingQueue.isEmpty()) {
                 RpcResponse rpcResponse = holdingQueue.peek();
-                LOG.info("rpcResponse >>> {}", rpcResponse);
                 if (rpcResponse.seq != replicator.requiredNextSeq) {
                     LOG.info("request seq illegal : seq {}, required {}", rpcResponse.seq, replicator.requiredNextSeq);
                     if (processed > 0) {
@@ -325,7 +320,6 @@ public class Replicator {
                 if (flying == null) {
                     continue;
                 }
-                LOG.warn("replicator.appendEntriesInFly: {}", replicator.appendEntriesInFly);
                 if (flying.seq != rpcResponse.seq) {
                     //TODO 不知道什么情况下会这样 and block
                 }
@@ -344,7 +338,7 @@ public class Replicator {
 
                     response = (AppendEntriesResponse) rpcResponse.response;
 
-                    LOG.info("curr term: {}, request seq {} [prev index: {}, prev term: {}, curr term: {}, entries size: {}]" +
+                    LOG.info("\ncurr term: {}, request seq {} [prev index: {}, prev term: {}, curr term: {}, entries size: {}]" +
                                     "\nresponse[term: {}, success?: {}, lastLogLast: {}]" +
                                     "\nflying[startLogIndex: {}]", this.options.getTerm(), seq,
                             request.getPreLogIndex(), request.getPrevLogTerm(), request.getTerm(), request.getEntriesCount(),
@@ -385,7 +379,6 @@ public class Replicator {
 
                     if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
                         replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
-                        LOG.info("update lastRpcSendTimestamp");
                     }
                     if (request.getEntriesCount() > 0) {
                         replicator.options.getBallotBox().commitAt(replicator.nextIndex,
@@ -394,7 +387,6 @@ public class Replicator {
                         replicator.state = State.Replicate;
                     }
                     replicator.nextIndex += request.getEntriesCount();
-                    LOG.warn("replicator.nextIndex: {}", replicator.nextIndex);
                     continueSendEntries = true;
                 } finally {
                     //TODO

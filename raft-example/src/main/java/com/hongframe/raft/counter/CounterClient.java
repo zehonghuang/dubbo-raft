@@ -32,7 +32,7 @@ public class CounterClient {
 
         System.out.println(leader);
         if(clientService.connect(leader)) {
-            for(int i = 0; i < 2; i++) {
+            for(int i = 0; i < 500; i++) {
                 IncrementAndGetRequest request = new IncrementAndGetRequest();
                 request.setValue((i + 1) * 100);
                 clientService.invokeAsync(leader, request, new ResponseCallbackAdapter() {

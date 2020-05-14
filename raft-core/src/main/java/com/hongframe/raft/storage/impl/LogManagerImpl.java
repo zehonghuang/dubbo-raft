@@ -274,11 +274,12 @@ public class LogManagerImpl implements LogManager {
 
     @Override
     public void appendEntries(List<LogEntry> entries, FlushDoneCallback callback) {
-        LOG.info("executeTasks -> appendEntries");
         boolean doUnlock = true;
         this.writeLock.lock();
         try {
             if (!entries.isEmpty() && !checkAndResolveConflict(entries, callback)) {
+                entries.clear();
+                Utils.runInThread(() -> callback.run(new Status(10001, "Fail to checkAndResolveConflict.")));
                 return;
             }
             for (final LogEntry entry : entries) {
@@ -470,7 +471,6 @@ public class LogManagerImpl implements LogManager {
     @Override
     public long wait(long expectedLastLogIndex, NewLogNotification notify, Object arg) {
         final WaitMeta wm = new WaitMeta(notify, arg, 0);
-        LOG.info("expectedLastLogIndex: {}", expectedLastLogIndex);
         this.writeLock.lock();
         try {
             if (expectedLastLogIndex != this.lastLogIndex) {

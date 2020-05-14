@@ -104,7 +104,6 @@ public class NodeImpl implements Node {
 
         @Override
         public void onEvent(LogEntrAndCallback event, long sequence, boolean endOfBatch) throws Exception {
-            LOG.info("apply -> LogEntryCallbackEventHandler.onEvent");
             tasks.add(event);
             if (tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
                 executeTasks(tasks);
@@ -502,9 +501,6 @@ public class NodeImpl implements Node {
                 response.setLastLogLast(this.logManager.getLastLogIndex());
                 doUnlock = false;
                 this.writeLock.unlock();
-                if (this.nodeId.getPeerId().getPort() == 8890) {
-                    LOG.warn("setLastCommittedIndex: {}, reqPrevIndex: {}", request.getCommittedIndex(), reqPrevIndex);
-                }
                 this.ballotBox.setLastCommittedIndex(Math.min(request.getCommittedIndex(), reqPrevIndex));
                 return response;
             }
@@ -517,7 +513,6 @@ public class NodeImpl implements Node {
                 //TODO check sum
                 entries.add(LogEntry.getInstance(requestEntries.get(i)));
             }
-            LOG.info("request body: {}", request.toString());
             this.logManager.appendEntries(entries, new FollowerFlushDoneCallback(entries, callback, request, this.currTerm, this));
         } catch (Exception e) {
             LOG.error("", e);
@@ -833,14 +828,12 @@ public class NodeImpl implements Node {
     @Override
     public void apply(Task task) {
 
-        LOG.info("into apply");
         LogEntry entry = new LogEntry();
         entry.setData(task.getData());
 
         final EventTranslator<LogEntrAndCallback> translator = (event, seq) -> {
             event.callback = task.getCallback();
             event.entry = entry;
-            LOG.info("Task -> LogEntrAndCallback");
         };
         while (true) {
             if (this.applyQueue.tryPublishEvent(translator)) {
@@ -865,11 +858,10 @@ public class NodeImpl implements Node {
     }
 
     private void executeTasks(final List<LogEntrAndCallback> tasks) {
-        LOG.info("onEvent -> executeTasks");
         this.writeLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                Status status = new Status(10001, "");
+                Status status = new Status(10001, "Is not leader.");
                 Utils.runInThread(() -> {
                     for (LogEntrAndCallback callback : tasks) {
                         callback.callback.run(status);
@@ -879,7 +871,6 @@ public class NodeImpl implements Node {
             }
             List<LogEntry> entries = new ArrayList<>(tasks.size());
             for (LogEntrAndCallback task : tasks) {
-                //TODO executeTasks
                 if (!this.ballotBox.appendPendingTask(this.conf.getConf(), null, task.callback)) {
                     continue;
                 }
@@ -887,7 +878,6 @@ public class NodeImpl implements Node {
                 task.entry.setType(EntryType.ENTRY_TYPE_DATA);
                 entries.add(task.entry);
             }
-            LOG.info("how much entries: {}", entries.size());
             this.logManager.appendEntries(entries, new LeaderFlushDoneCallback(entries));
         } finally {
             this.writeLock.unlock();
