@@ -851,7 +851,7 @@ public class NodeImpl implements Node {
 
     @Override
     public void readIndex(byte[] requestContext, ReadIndexCallback callback) {
-
+        this.readOnlyService.addRequest(requestContext, callback);
     }
 
     private class LeaderFlushDoneCallback extends LogManager.FlushDoneCallback {
