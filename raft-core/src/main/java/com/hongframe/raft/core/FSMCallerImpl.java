@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -40,6 +41,7 @@ public class FSMCallerImpl implements FSMCaller {
     private CallbackQueue callbackQueue;
     private Disruptor<CallerTask> disruptor;
     private RingBuffer<CallerTask> taskQueue;
+    private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
 
     public FSMCallerImpl() {
         super();
@@ -156,10 +158,16 @@ public class FSMCallerImpl implements FSMCaller {
     private void doApplyTasks(final IteratorImpl iterator) {
         final IteratorWrapper iter = new IteratorWrapper(iterator);
         this.stateMachine.onApply(iter);
-        if(iter.hasNext()) {
+        if (iter.hasNext()) {
             //TODO error
         }
         iter.next();
+    }
+
+    private void notifyLastAppliedIndexUpdated(final long lastAppliedIndex) {
+        for (final LastAppliedLogIndexListener listener : this.lastAppliedLogIndexListeners) {
+            listener.onApplied(lastAppliedIndex);
+        }
     }
 
     @Override

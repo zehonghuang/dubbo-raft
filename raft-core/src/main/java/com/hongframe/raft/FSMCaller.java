@@ -8,6 +8,11 @@ import com.hongframe.raft.option.FSMCallerOptions;
  */
 public interface FSMCaller extends Lifecycle<FSMCallerOptions> {
 
+    interface LastAppliedLogIndexListener {
+
+        void onApplied(final long lastAppliedLogIndex);
+    }
+
     boolean onCommitted(final long committedIndex);
 
     boolean onLeaderStop(final Status status);

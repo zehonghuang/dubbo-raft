@@ -1,5 +1,6 @@
 package com.hongframe.raft;
 
+import com.hongframe.raft.callback.ReadIndexCallback;
 import com.hongframe.raft.entity.NodeId;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.entity.Task;
@@ -16,5 +17,7 @@ public interface Node extends Lifecycle<NodeOptions> {
     PeerId getLeaderId();
 
     void apply(final Task task);
+
+    void readIndex(final byte[] requestContext, final ReadIndexCallback callback);
 
 }

@@ -21,4 +21,9 @@
 - 增加disruptor处理client发送的任务
     - ⁉️调研百度的bthread，看是否能用java实现，替代disruptor，原因是后者无法做event之间通信调度
 - 增加RocksDB做为日志存储
-- 🚩计划实现SegmentLog，分段存储
+
+- 🚩🚩🚩🚩立个flag，看到底会不会去实现哈哈哈🚩🚩🚩🚩
+    - 计划实现SegmentLog，分段存储
+    - KV存储动态分片
+    - 无状态机版Raft
+        - 基于AMQP的分布式消息队列

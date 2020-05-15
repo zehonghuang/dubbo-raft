@@ -63,6 +63,7 @@ public class NodeImpl implements Node {
     private RaftOptions raftOptions;
 
     private RpcClient rpcClient;
+    private ReadOnlyService readOnlyService;
 
     private ReentrantTimer voteTimer;
     private ReentrantTimer electionTimer;
@@ -213,6 +214,12 @@ public class NodeImpl implements Node {
         rgo.setBallotBox(this.ballotBox);
         rgo.setRaftOptions(this.raftOptions);
         this.replicatorGroup.init(this.nodeId.copy(), rgo);
+
+        this.readOnlyService = new ReadOnlyServiceImpl();
+        final ReadOnlyServiceOptions rosOpts = new ReadOnlyServiceOptions();
+        rosOpts.setFsmCaller(this.caller);
+        rosOpts.setNode(this);
+        rosOpts.setRaftOptions(this.raftOptions);
 
         this.state = State.STATE_FOLLOWER;
 
@@ -840,6 +847,11 @@ public class NodeImpl implements Node {
                 break;
             }
         }
+    }
+
+    @Override
+    public void readIndex(byte[] requestContext, ReadIndexCallback callback) {
+
     }
 
     private class LeaderFlushDoneCallback extends LogManager.FlushDoneCallback {
