@@ -1,13 +1,7 @@
 package com.hongframe.raft.option;
 
-import com.hongframe.raft.rpc.core.AppendEntriesRpc;
-import com.hongframe.raft.rpc.core.ClientRequestRpc;
-import com.hongframe.raft.rpc.core.MembershipChangeRpc;
-import com.hongframe.raft.rpc.core.RequestVoteRpc;
-import com.hongframe.raft.rpc.impl.AppendEntriesRpcImpl;
-import com.hongframe.raft.rpc.impl.ClientRequestRpcImpl;
-import com.hongframe.raft.rpc.impl.MembershipChangeRpcImpl;
-import com.hongframe.raft.rpc.impl.RequestVoteRpcImpl;
+import com.hongframe.raft.rpc.core.*;
+import com.hongframe.raft.rpc.impl.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +36,7 @@ public class RpcRemoteOptions {
         addRaftRequest0(RequestVoteRpc.class, RequestVoteRpcImpl.class, null);
         addRaftRequest0(AppendEntriesRpc.class, AppendEntriesRpcImpl.class, null);
         addRaftRequest0(MembershipChangeRpc.class, MembershipChangeRpcImpl.class, null);
+        addRaftRequest0(ReadIndexRpc.class, ReadIndexRpcImpl.class, null);
     }
 
     private void addRaftRequest0(Class interfacez, Class implz, Class mock) {

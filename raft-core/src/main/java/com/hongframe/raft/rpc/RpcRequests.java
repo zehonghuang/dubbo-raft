@@ -3,10 +3,12 @@ package com.hongframe.raft.rpc;
 import com.hongframe.raft.entity.*;
 import com.hongframe.raft.rpc.core.AppendEntriesRpc;
 import com.hongframe.raft.rpc.core.MembershipChangeRpc;
+import com.hongframe.raft.rpc.core.ReadIndexRpc;
 import com.hongframe.raft.rpc.core.RequestVoteRpc;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -308,7 +310,7 @@ public class RpcRequests {
             out.setId(entry.getId());
             out.setPeers(entry.getPeers());
             out.setOldPeers(entry.getOldPeers());
-            if(entry.getData() != null) {
+            if (entry.getData() != null) {
                 out.setData(entry.getData().array());
             }
             return out;
@@ -366,7 +368,7 @@ public class RpcRequests {
         }
 
         public int getEntriesCount() {
-            if(outEntries == null) {
+            if (outEntries == null) {
                 return 0;
             }
             return outEntries.size();
@@ -641,6 +643,101 @@ public class RpcRequests {
         @Override
         public String getName() {
             return getClass().getName();
+        }
+    }
+
+    public final static class ReadIndexRequest implements Message {
+        private String groupId;
+        private String serverId;
+        private String peerId;
+        private byte[] data;
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        public String getServerId() {
+            return serverId;
+        }
+
+        public void setServerId(String serverId) {
+            this.serverId = serverId;
+        }
+
+        public void setPeerId(String peerId) {
+            this.peerId = peerId;
+        }
+
+        public byte[] getData() {
+            return data;
+        }
+
+        public void setData(byte[] data) {
+            this.data = data;
+        }
+
+        @Override
+        public String seviceName() {
+            return ReadIndexRpc.class.getSimpleName();
+        }
+
+        @Override
+        public String method() {
+            return "readIndex";
+        }
+
+        @Override
+        public String getName() {
+            return getClass().getName();
+        }
+
+        @Override
+        public String getPeerId() {
+            return this.peerId;
+        }
+
+        @Override
+        public String getGroupId() {
+            return this.groupId;
+        }
+
+        @Override
+        public String toString() {
+            return "ReadIndexRequest{" +
+                    "groupId='" + groupId + '\'' +
+                    ", serverId='" + serverId + '\'' +
+                    ", peerId='" + peerId + '\'' +
+                    ", data=" + (data == null ? 0 : data.length) +
+                    '}';
+        }
+    }
+
+    public final static class ReadIndexResponse implements Message {
+        private long index;
+        private boolean success;
+
+        public long getIndex() {
+            return index;
+        }
+
+        public void setIndex(long index) {
+            this.index = index;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        @Override
+        public String toString() {
+            return "ReadIndexResponse{" +
+                    "index=" + index +
+                    ", success=" + success +
+                    '}';
         }
     }
 

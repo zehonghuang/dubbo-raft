@@ -10,4 +10,6 @@ public interface CounterService {
 
     Response<ValueResponse> incrementAndGet(IncrementAndGetRequest request);
 
+    Response<ValueResponse> getValue(GetValueRequest request);
+
 }

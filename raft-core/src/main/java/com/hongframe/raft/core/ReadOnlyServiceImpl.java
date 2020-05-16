@@ -9,10 +9,7 @@ import com.hongframe.raft.util.Bytes;
 import com.hongframe.raft.util.DisruptorBuilder;
 import com.hongframe.raft.util.LogExceptionHandler;
 import com.hongframe.raft.util.NamedThreadFactory;
-import com.lmax.disruptor.BlockingWaitStrategy;
-import com.lmax.disruptor.EventFactory;
-import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import org.slf4j.Logger;
@@ -60,7 +57,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
                 throws Exception {
             this.events.add(newEvent);
             if (this.events.size() >= ReadOnlyServiceImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
-                //TODO
+                executeReadIndexEvents(this.events);
                 this.events.clear();
             }
         }
@@ -72,7 +69,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
         this.fsmCaller = opts.getFsmCaller();
         this.raftOptions = opts.getRaftOptions();
 
-        this.readIndexDisruptor = DisruptorBuilder.<ReadIndexEvent> newInstance() //
+        this.readIndexDisruptor = DisruptorBuilder.<ReadIndexEvent>newInstance() //
                 .setEventFactory(new ReadIndexEventFactory()) //
                 .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //
                 .setThreadFactory(new NamedThreadFactory("Dubbo-Raft-ReadOnlyService-Disruptor", true)) //
@@ -89,6 +86,24 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
 
     @Override
     public void addRequest(byte[] reqCtx, ReadIndexCallback callback) {
+        EventTranslator<ReadIndexEvent> translator = (event, sequence) -> {
+            event.bytes = new Bytes(reqCtx);
+            event.callback = callback;
+        };
+        while (true) {
+            if (this.readIndexQueue.tryPublishEvent(translator)) {
+                break;
+            } else {
+                Thread.yield();
+            }
+        }
+    }
+
+    private void executeReadIndexEvents(final List<ReadIndexEvent> events) {
+        if(events.isEmpty()) {
+            return;
+        }
+
 
     }
 

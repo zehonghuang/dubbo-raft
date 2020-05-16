@@ -531,6 +531,11 @@ public class NodeImpl implements Node {
         return null;
     }
 
+    public Message handleReadIndexRequest(ReadIndexRequest request, RequestCallback callback) {
+        //TODO handleReadIndexRequest
+        return null;
+    }
+
     private void updateLastLeaderTimestamp(final long lastLeaderTimestamp) {
         this.lastLeaderTimestamp = lastLeaderTimestamp;
     }

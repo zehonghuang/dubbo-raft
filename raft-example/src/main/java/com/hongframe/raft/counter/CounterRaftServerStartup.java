@@ -27,6 +27,8 @@ public class CounterRaftServerStartup {
 
     private Node node;
 
+    private CounterStateMachine fsm;
+
 
     private Node startup(int port, String servers) {
 
@@ -43,13 +45,18 @@ public class CounterRaftServerStartup {
         NodeOptions nodeOptions = new NodeOptions();
         nodeOptions.setConfig(configuration);
         nodeOptions.setLogUri(".");
-        nodeOptions.setStateMachine(new CounterStateMachine());
+        this.fsm = new CounterStateMachine();
+        nodeOptions.setStateMachine(this.fsm);
 
         RaftGroupService raftGroupService = new RaftGroupService(GROUP, serverId, nodeOptions, rpcServer);
         this.node = raftGroupService.start();
         LOG.info("started...");
 
         return node;
+    }
+
+    public CounterStateMachine getFsm() {
+        return fsm;
     }
 
     private CounterRaftServerStartup(int port, String servers) {

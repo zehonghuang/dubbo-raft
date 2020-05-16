@@ -53,6 +53,10 @@ public class CounterStateMachine implements StateMachine {
         }
     }
 
+    public long getValue() {
+        return this.value.get();
+    }
+
     @Override
     public void onShutdown() {
 
