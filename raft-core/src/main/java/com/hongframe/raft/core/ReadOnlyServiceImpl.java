@@ -5,6 +5,7 @@ import com.hongframe.raft.ReadOnlyService;
 import com.hongframe.raft.callback.ReadIndexCallback;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.option.ReadOnlyServiceOptions;
+import com.hongframe.raft.rpc.RpcRequests;
 import com.hongframe.raft.util.Bytes;
 import com.hongframe.raft.util.DisruptorBuilder;
 import com.hongframe.raft.util.LogExceptionHandler;
@@ -100,11 +101,39 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
     }
 
     private void executeReadIndexEvents(final List<ReadIndexEvent> events) {
-        if(events.isEmpty()) {
+        if (events.isEmpty()) {
             return;
         }
+        RpcRequests.ReadIndexRequest request = new RpcRequests.ReadIndexRequest();
+        request.setGroupId(this.node.getNodeId().getGroupId());
+        request.setServerId(this.node.getNodeId().getPeerId().toString());
 
+        final List<ReadIndexState> states = new ArrayList<>(events.size());
+        List<byte[]> byteses = new ArrayList<>();
+        for (final ReadIndexEvent event : events) {
+            states.add(new ReadIndexState(event.bytes, event.callback));
+            byteses.add(event.bytes.get());
+        }
+        request.setDatas(byteses);
 
+        this.node.handleReadIndexRequest(request, null);//TODO
+    }
+
+    private class ReadIndexState {
+        long index = -1;
+        Bytes requestContext;
+        ReadIndexCallback done;
+
+        public ReadIndexState(Bytes requestContext, ReadIndexCallback done) {
+            this.requestContext = requestContext;
+            this.done = done;
+        }
+    }
+
+    private class ReadIndexStatus {
+        RpcRequests.ReadIndexRequest request;
+        List<ReadIndexState> states;
+        long index;
     }
 
     @Override

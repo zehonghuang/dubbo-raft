@@ -650,7 +650,7 @@ public class RpcRequests {
         private String groupId;
         private String serverId;
         private String peerId;
-        private byte[] data;
+        private List<byte[]> datas;
 
         public void setGroupId(String groupId) {
             this.groupId = groupId;
@@ -668,12 +668,12 @@ public class RpcRequests {
             this.peerId = peerId;
         }
 
-        public byte[] getData() {
-            return data;
+        public List<byte[]> getDatas() {
+            return datas;
         }
 
-        public void setData(byte[] data) {
-            this.data = data;
+        public void setDatas(List<byte[]> datas) {
+            this.datas = datas;
         }
 
         @Override
@@ -707,7 +707,7 @@ public class RpcRequests {
                     "groupId='" + groupId + '\'' +
                     ", serverId='" + serverId + '\'' +
                     ", peerId='" + peerId + '\'' +
-                    ", data=" + (data == null ? 0 : data.length) +
+                    ", datas=" + datas +
                     '}';
         }
     }

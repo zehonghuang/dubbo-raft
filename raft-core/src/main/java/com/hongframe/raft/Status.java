@@ -34,6 +34,9 @@ public class Status {
         }
     }
 
+    public int getCode() {
+        return this.state == null ? 0 : this.state.code;
+    }
     public Status(int code, String errorMsg) {
         this.state = new State(code, errorMsg);
     }

@@ -19,7 +19,7 @@ public abstract class ResponseCallbackAdapter implements ResponseCallback {
 
     private Message message ;
 
-    private void setResponse(Message message) {
+    public void setResponse(Message message) {
         this.message = message;
     }
 

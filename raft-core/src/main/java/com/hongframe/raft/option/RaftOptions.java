@@ -26,6 +26,16 @@ public class RaftOptions {
 
     private int maxReplicatorFlyingMsgs = 256;
 
+    private ReadOnlyOption readOnlyOptions = ReadOnlyOption.ReadOnlySafe;
+
+    public ReadOnlyOption getReadOnlyOptions() {
+        return readOnlyOptions;
+    }
+
+    public void setReadOnlyOptions(ReadOnlyOption readOnlyOptions) {
+        this.readOnlyOptions = readOnlyOptions;
+    }
+
     public int getMaxAppendBufferSize() {
         return maxAppendBufferSize;
     }

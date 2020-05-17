@@ -49,6 +49,10 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
         return peers.iterator();
     }
 
+    public boolean isEmpty() {
+        return this.peers.isEmpty();
+    }
+
     public boolean parse(String conf) {
         if(StringUtils.isBlank(conf)) {
             return false;

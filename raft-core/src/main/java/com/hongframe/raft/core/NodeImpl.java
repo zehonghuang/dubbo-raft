@@ -531,9 +531,82 @@ public class NodeImpl implements Node {
         return null;
     }
 
-    public Message handleReadIndexRequest(ReadIndexRequest request, RequestCallback callback) {
+    public Message handleReadIndexRequest(ReadIndexRequest request, ResponseCallback callback) {
         //TODO handleReadIndexRequest
+        Message message = null;
+        this.readLock.lock();
+        try {
+            switch (this.state) {
+                case STATE_FOLLOWER:
+                    message = readFollower(request, callback);
+                    break;
+                case STATE_LEADER:
+                    message = readLeader(request, callback);
+                    break;
+                default:
+                    break;
+            }
+        } finally {
+            this.readLock.unlock();
+        }
+        return message;
+    }
+
+    private Message readFollower(final ReadIndexRequest request, ResponseCallback callback) {
+        if (this.leaderId == null || this.leaderId.isEmpty()) {
+            return new ErrorResponse(10001, "No leader at term " + this.currTerm);
+        }
+        request.setPeerId(this.leaderId.toString());
+        this.rpcClient.readIndex(this.leaderId, request, callback);
+
         return null;
+    }
+
+    private Message readLeader(final ReadIndexRequest request, ResponseCallback callback) {
+        //TODO readLeader
+        ReadIndexResponse response = new ReadIndexResponse();
+        int quorum = getQuorum();
+        if (quorum <= 1) {
+            response.setSuccess(true);
+            response.setIndex(this.ballotBox.getLastCommittedIndex());
+            return response;
+        }
+
+        final long lastCommittedIndex = this.ballotBox.getLastCommittedIndex();
+        if (this.logManager.getTerm(lastCommittedIndex) != this.currTerm) {
+            return new ErrorResponse(10001, "");
+        }
+        response.setIndex(lastCommittedIndex);
+
+        ReadOnlyOption readOnly = this.raftOptions.getReadOnlyOptions();
+        if(readOnly == ReadOnlyOption.ReadOnlyLeaseBased && !checkLeaderLease()) {
+            readOnly = ReadOnlyOption.ReadOnlySafe;
+        }
+
+        if(readOnly == ReadOnlyOption.ReadOnlySafe) {
+            //TODO ReadOnlySafe
+        } else {
+            response.setSuccess(true);
+            return response;
+        }
+        return null;
+    }
+
+    private boolean checkLeaderLease() {
+        long m = Utils.monotonicMs();
+        if(checkLeaderLease(m)) {
+            return true;
+        }
+        checkDeadNodes0(this.conf.getConf().getPeers(), m);
+        return checkLeaderLease(m);
+    }
+
+    private int getQuorum() {
+        final Configuration c = this.conf.getConf();
+        if (c.isEmpty()) {
+            return 0;
+        }
+        return c.getPeers().size() / 2 + 1;
     }
 
     private void updateLastLeaderTimestamp(final long lastLeaderTimestamp) {
@@ -818,6 +891,10 @@ public class NodeImpl implements Node {
             this.writeLock.unlock();
         }
 
+    }
+
+    private boolean checkLeaderLease(final long monotonicNowMs) {
+        return monotonicNowMs - this.lastLeaderTimestamp < this.nodeOptions.getLeaderLeaseTimeoutMs();
     }
 
     private boolean isCurrentLeaderValid() {
