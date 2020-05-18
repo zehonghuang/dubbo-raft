@@ -1,5 +1,6 @@
 package com.hongframe.raft;
 
+import com.hongframe.raft.callback.ResponseCallback;
 import com.hongframe.raft.core.Replicator;
 import com.hongframe.raft.entity.NodeId;
 import com.hongframe.raft.entity.PeerId;
@@ -11,6 +12,8 @@ public interface ReplicatorGroup {
     boolean init(final NodeId nodeId, final ReplicatorGroupOptions options);
 
     boolean addReplicator(final PeerId peer);
+
+    void sendHeartbeat(final PeerId peer, final ResponseCallback callback);
 
     boolean resetTerm(final long newTerm);
 

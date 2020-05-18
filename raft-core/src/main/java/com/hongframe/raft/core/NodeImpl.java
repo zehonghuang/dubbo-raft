@@ -579,12 +579,21 @@ public class NodeImpl implements Node {
         response.setIndex(lastCommittedIndex);
 
         ReadOnlyOption readOnly = this.raftOptions.getReadOnlyOptions();
-        if(readOnly == ReadOnlyOption.ReadOnlyLeaseBased && !checkLeaderLease()) {
+        if (readOnly == ReadOnlyOption.ReadOnlyLeaseBased && !checkLeaderLease()) {
             readOnly = ReadOnlyOption.ReadOnlySafe;
         }
 
-        if(readOnly == ReadOnlyOption.ReadOnlySafe) {
+        if (readOnly == ReadOnlyOption.ReadOnlySafe) {
             //TODO ReadOnlySafe
+            final List<PeerId> peers = this.conf.getConf().getPeers();
+            ReadIndexHeartbeatResponseCallback heartbeatResponseCallback =
+                    new ReadIndexHeartbeatResponseCallback((ResponseCallbackAdapter) callback, response, quorum, peers.size());
+            for (final PeerId peer : peers) {
+                if (peer.equals(this.serverId)) {
+                    continue;
+                }
+                this.replicatorGroup.sendHeartbeat(peer, heartbeatResponseCallback);
+            }
         } else {
             response.setSuccess(true);
             return response;
@@ -592,9 +601,50 @@ public class NodeImpl implements Node {
         return null;
     }
 
+    private class ReadIndexHeartbeatResponseCallback extends ResponseCallbackAdapter {
+        ResponseCallbackAdapter callback;
+        ReadIndexResponse response;
+        int quorum;
+        int failPeersThreshold;
+        int ackSuccess;
+        int ackFailures;
+        boolean isDone;
+
+        public ReadIndexHeartbeatResponseCallback(ResponseCallbackAdapter callback, ReadIndexResponse response, int quorum, int peersCount) {
+            this.callback = callback;
+            this.response = response;
+            this.quorum = quorum;
+            this.failPeersThreshold = peersCount % 2 == 0 ? (quorum - 1) : quorum;
+        }
+
+        @Override
+        public void run(Status status) {
+            if (this.isDone) {
+                return;
+            }
+            AppendEntriesResponse appendEntriesResponse = (AppendEntriesResponse) getResponse();
+            if (status.isOk() && appendEntriesResponse.getSuccess()) {
+                this.ackSuccess++;
+            } else {
+                this.ackFailures++;
+            }
+            if (this.ackSuccess + 1 >= this.quorum) {
+                this.response.setSuccess(true);
+                this.callback.setResponse(response);
+                this.callback.run(Status.OK());
+                this.isDone = true;
+            } else if (this.ackFailures >= this.failPeersThreshold) {
+                this.response.setSuccess(false);
+                this.callback.setResponse(response);
+                this.callback.run(Status.OK());
+                this.isDone = true;
+            }
+        }
+    }
+
     private boolean checkLeaderLease() {
         long m = Utils.monotonicMs();
-        if(checkLeaderLease(m)) {
+        if (checkLeaderLease(m)) {
             return true;
         }
         checkDeadNodes0(this.conf.getConf().getPeers(), m);

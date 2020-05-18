@@ -2,7 +2,9 @@ package com.hongframe.raft.core;
 
 import com.hongframe.raft.FSMCaller;
 import com.hongframe.raft.ReadOnlyService;
+import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.ReadIndexCallback;
+import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.option.ReadOnlyServiceOptions;
 import com.hongframe.raft.rpc.RpcRequests;
@@ -18,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -36,6 +39,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
 
     private Disruptor<ReadIndexEvent> readIndexDisruptor;
     private RingBuffer<ReadIndexEvent> readIndexQueue;
+
+    private final TreeMap<Long, List<ReadIndexStatus>> pendingNotifyStatus = new TreeMap<>();
 
     private static class ReadIndexEvent {
         Bytes bytes;
@@ -116,7 +121,52 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
         }
         request.setDatas(byteses);
 
-        this.node.handleReadIndexRequest(request, null);//TODO
+        this.node.handleReadIndexRequest(request, new ReadIndexResponseCallback(states, request));
+    }
+
+    private class ReadIndexResponseCallback extends ResponseCallbackAdapter {
+        final List<ReadIndexState> states;
+        final RpcRequests.ReadIndexRequest request;
+
+        public ReadIndexResponseCallback(List<ReadIndexState> states, RpcRequests.ReadIndexRequest request) {
+            this.states = states;
+            this.request = request;
+        }
+
+        @Override
+        public void run(Status status) {
+            if (!status.isOk()) {
+                return;
+            }
+
+            final RpcRequests.ReadIndexResponse readIndexResponse = (RpcRequests.ReadIndexResponse) getResponse();
+            if (!readIndexResponse.getSuccess()) {
+                return;
+            }
+            for (final ReadIndexState state : this.states) {
+                state.index = readIndexResponse.getIndex();
+            }
+            final ReadIndexStatus readIndexStatus = new ReadIndexStatus(this.request, this.states,
+                    readIndexResponse.getIndex());
+            boolean doUnlock = true;
+            ReadOnlyServiceImpl.this.lock.lock();
+            try {
+                if (readIndexStatus.isApplied(ReadOnlyServiceImpl.this.fsmCaller.getLastAppliedIndex())) {
+                    //TODO onApplied
+                    doUnlock = false;
+                    ReadOnlyServiceImpl.this.lock.unlock();
+                } else {
+                    ReadOnlyServiceImpl.this.pendingNotifyStatus
+                            .computeIfAbsent(readIndexStatus.index, k -> new ArrayList<>(10))
+                            .add(readIndexStatus);
+                }
+            } finally {
+                if (doUnlock) {
+                    ReadOnlyServiceImpl.this.lock.unlock();
+                }
+            }
+
+        }
     }
 
     private class ReadIndexState {
@@ -134,6 +184,22 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
         RpcRequests.ReadIndexRequest request;
         List<ReadIndexState> states;
         long index;
+
+        public ReadIndexStatus(RpcRequests.ReadIndexRequest request, List<ReadIndexState> states, long index) {
+            this.request = request;
+            this.states = states;
+            this.index = index;
+        }
+
+        public boolean isApplied(long appliedIndex) {
+            return appliedIndex >= this.index;
+        }
+
+    }
+
+    @Override
+    public void onApplied(long lastAppliedLogIndex) {
+        //TODO onApplied
     }
 
     @Override

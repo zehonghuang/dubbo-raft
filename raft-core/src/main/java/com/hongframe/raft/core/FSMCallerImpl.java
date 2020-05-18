@@ -181,6 +181,11 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     @Override
+    public long getLastAppliedIndex() {
+        return this.applyingIndex.get();
+    }
+
+    @Override
     public void shutdown() {
 
     }

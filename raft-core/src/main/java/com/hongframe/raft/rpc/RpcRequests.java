@@ -724,7 +724,7 @@ public class RpcRequests {
             this.index = index;
         }
 
-        public boolean isSuccess() {
+        public boolean getSuccess() {
             return success;
         }
 

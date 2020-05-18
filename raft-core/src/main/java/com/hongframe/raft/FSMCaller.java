@@ -19,5 +19,7 @@ public interface FSMCaller extends Lifecycle<FSMCallerOptions> {
 
     boolean onLeaderStart(final long term);
 
+    long getLastAppliedIndex();
+
 
 }

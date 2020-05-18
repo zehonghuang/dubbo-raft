@@ -1,6 +1,7 @@
 package com.hongframe.raft.core;
 
 import com.hongframe.raft.Status;
+import com.hongframe.raft.callback.ResponseCallback;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.Message;
 import com.hongframe.raft.option.ReplicatorOptions;
@@ -152,7 +153,7 @@ public class Replicator {
         replicator.lastRpcSendTimestamp = Utils.monotonicMs();
         replicator.startHeartbeatTimer(Utils.nowMs());
         replicator.LOG.warn("startHeartbeatTimer");
-        replicator.sendEmptyEntries(false);
+        replicator.sendEmptyEntries(false, null);
         replicator.LOG.info("start Replicator :{}", replicator.options.getPeerId());
 //        lock.unlock();
         return lock;
@@ -165,19 +166,19 @@ public class Replicator {
     }
 
     private void onTimeout(ObjectLock<Replicator> lock) {
-        Utils.runInThread(() -> sendHeartbeat(lock));
+        Utils.runInThread(() -> sendHeartbeat(lock, null));
     }
 
-    private static void sendHeartbeat(final ObjectLock<Replicator> lock) {
+    public static void sendHeartbeat(final ObjectLock<Replicator> lock, ResponseCallback heartBeatCallback) {
         final Replicator r = lock.lock();
         if (r == null) {
             return;
         }
         // unlock in sendEmptyEntries
-        r.sendEmptyEntries(true);
+        r.sendEmptyEntries(true, heartBeatCallback);
     }
 
-    private void sendEmptyEntries(final boolean isHeartbeat) {
+    private void sendEmptyEntries(final boolean isHeartbeat, ResponseCallback heartBeatCallback) {
         final AtomicBoolean doUnlock = new AtomicBoolean(true);
         try {
             AppendEntriesRequest request = new AppendEntriesRequest();
@@ -193,19 +194,22 @@ public class Replicator {
             final long monotonicSendTimeMs = Utils.monotonicMs();
 
             if (isHeartbeat) {
-                this.heartbeatInFly = this.rpcClient.appendEntries(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
-                    @Override
-                    public void run(Status status) {
-                        AppendEntriesResponse appendEntriesResponse = null;
-                        if (!status.isOk()) {
-                            doUnlock.set(false);
-                            Replicator.this.self.unlock();
-                        } else {
-                            appendEntriesResponse = (AppendEntriesResponse) getResponse();
+                if(heartBeatCallback == null) {
+                    heartBeatCallback = new ResponseCallbackAdapter() {
+                        @Override
+                        public void run(Status status) {
+                            AppendEntriesResponse appendEntriesResponse = null;
+                            if (!status.isOk()) {
+                                doUnlock.set(false);
+                                Replicator.this.self.unlock();
+                            } else {
+                                appendEntriesResponse = (AppendEntriesResponse) getResponse();
+                            }
+                            onHeartbeatReturned(Replicator.this.self, status, appendEntriesResponse, monotonicSendTimeMs);
                         }
-                        onHeartbeatReturned(Replicator.this.self, status, appendEntriesResponse, monotonicSendTimeMs);
-                    }
-                });
+                    };
+                }
+                this.heartbeatInFly = this.rpcClient.appendEntries(this.options.getPeerId(), request, heartBeatCallback);
             } else {
                 this.state = State.Probe;
                 int reqSeq = getAndIncrementReqSeq();
@@ -255,7 +259,7 @@ public class Replicator {
             }
             if (!response.getSuccess() && !(response.getLastLogLast() < 0)) {
                 doUnlock = false;
-                replicator.sendEmptyEntries(false);
+                replicator.sendEmptyEntries(false, null);
                 replicator.startHeartbeatTimer(startTimeMs);
                 return;
             }
@@ -287,7 +291,7 @@ public class Replicator {
                 doUnlock = false;
                 continueSendEntries = false;
                 replicator.resetInflights();
-                replicator.sendEmptyEntries(false);
+                replicator.sendEmptyEntries(false, null);
                 return;
             }
 
@@ -297,7 +301,7 @@ public class Replicator {
                 continueSendEntries = false;
                 doUnlock = false;
                 replicator.resetInflights();
-                replicator.sendEmptyEntries(false);
+                replicator.sendEmptyEntries(false, null);
                 return;
             }
 
@@ -332,7 +336,7 @@ public class Replicator {
                         LOG.warn("flying.startLogIndex != request.getPreLogIndex() + 1");
                         continueSendEntries = false;
                         doUnlock = false;
-                        replicator.sendEmptyEntries(false);
+                        replicator.sendEmptyEntries(false, null);
                         break;
                     }
 
@@ -367,7 +371,7 @@ public class Replicator {
                         }
                         continueSendEntries = false;
                         doUnlock = false;
-                        replicator.sendEmptyEntries(false);
+                        replicator.sendEmptyEntries(false, null);
                         break;
                     }
 

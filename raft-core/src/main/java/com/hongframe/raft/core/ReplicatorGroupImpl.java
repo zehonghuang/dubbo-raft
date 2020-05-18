@@ -1,6 +1,7 @@
 package com.hongframe.raft.core;
 
 import com.hongframe.raft.ReplicatorGroup;
+import com.hongframe.raft.callback.ResponseCallback;
 import com.hongframe.raft.entity.NodeId;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.ReplicatorGroupOptions;
@@ -48,6 +49,16 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         ReplicatorOptions ro = this.replicatorOptions.copy();
         ro.setPeerId(peer);
         return replicatorMap.put(peer, Replicator.start(ro)) == null;
+    }
+
+    @Override
+    public void sendHeartbeat(PeerId peer, ResponseCallback callback) {
+        final ObjectLock<Replicator> lock = this.replicatorMap.get(peer);
+        if(lock == null) {
+            //TODO sendHeartbeat npe
+            return;
+        }
+        Replicator.sendHeartbeat(lock, callback);
     }
 
     @Override
