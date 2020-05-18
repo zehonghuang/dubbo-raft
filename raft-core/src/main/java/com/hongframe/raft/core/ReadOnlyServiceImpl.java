@@ -8,19 +8,14 @@ import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.option.ReadOnlyServiceOptions;
 import com.hongframe.raft.rpc.RpcRequests;
-import com.hongframe.raft.util.Bytes;
-import com.hongframe.raft.util.DisruptorBuilder;
-import com.hongframe.raft.util.LogExceptionHandler;
-import com.hongframe.raft.util.NamedThreadFactory;
+import com.hongframe.raft.util.*;
 import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -74,7 +69,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
         this.node = opts.getNode();
         this.fsmCaller = opts.getFsmCaller();
         this.raftOptions = opts.getRaftOptions();
-
+        this.fsmCaller.addLastAppliedLogIndexListener(this);
         this.readIndexDisruptor = DisruptorBuilder.<ReadIndexEvent>newInstance() //
                 .setEventFactory(new ReadIndexEventFactory()) //
                 .setRingBufferSize(this.raftOptions.getDisruptorBufferSize()) //
@@ -152,7 +147,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
             ReadOnlyServiceImpl.this.lock.lock();
             try {
                 if (readIndexStatus.isApplied(ReadOnlyServiceImpl.this.fsmCaller.getLastAppliedIndex())) {
-                    //TODO onApplied
+                    notifySuccess(readIndexStatus);
                     doUnlock = false;
                     ReadOnlyServiceImpl.this.lock.unlock();
                 } else {
@@ -172,11 +167,11 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
     private class ReadIndexState {
         long index = -1;
         Bytes requestContext;
-        ReadIndexCallback done;
+        ReadIndexCallback callback;
 
         public ReadIndexState(Bytes requestContext, ReadIndexCallback done) {
             this.requestContext = requestContext;
-            this.done = done;
+            this.callback = done;
         }
     }
 
@@ -199,8 +194,45 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
 
     @Override
     public void onApplied(long lastAppliedLogIndex) {
-        //TODO onApplied
+        List<ReadIndexStatus> pendingStatuses = null;
+        this.lock.lock();
+        try {
+            if (this.pendingNotifyStatus.isEmpty()) {
+                return;
+            }
+            final Map<Long, List<ReadIndexStatus>> statuses = this.pendingNotifyStatus.headMap(lastAppliedLogIndex, true);
+            if (statuses != null) {
+                pendingStatuses = new ArrayList<>(statuses.size() << 1);
+                final Iterator<Map.Entry<Long, List<ReadIndexStatus>>> it = statuses.entrySet().iterator();
+                while (it.hasNext()) {
+                    final Map.Entry<Long, List<ReadIndexStatus>> entry = it.next();
+                    pendingStatuses.addAll(entry.getValue());
+                    it.remove();
+                }
+            }
+        } finally {
+            this.lock.unlock();
+            if (pendingStatuses != null && !pendingStatuses.isEmpty()) {
+                for (final ReadIndexStatus status : pendingStatuses) {
+                    notifySuccess(status);
+                }
+            }
+        }
     }
+
+    private void notifySuccess(ReadIndexStatus status) {
+        final List<ReadIndexState> states = status.states;
+        final int taskCount = states.size();
+        for (int i = 0; i < taskCount; i++) {
+            final ReadIndexState task = states.get(i);
+            final ReadIndexCallback callback = task.callback; // stack copy
+            if (callback != null) {
+                callback.setResult(task.index, task.requestContext.get());
+                callback.run(Status.OK());
+            }
+        }
+    }
+
 
     @Override
     public void shutdown() {

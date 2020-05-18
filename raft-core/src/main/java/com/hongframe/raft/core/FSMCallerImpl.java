@@ -91,6 +91,7 @@ public class FSMCallerImpl implements FSMCaller {
         this.logManager = opts.getLogManager();
         this.node = opts.getNode();
         this.callbackQueue = opts.getCallbackQueue();
+        notifyLastAppliedIndexUpdated(this.lastAppliedIndex.get());
 
         this.disruptor = DisruptorBuilder.<CallerTask>newInstance() //
                 .setEventFactory(new CallerTaskFactory()) //
@@ -103,6 +104,11 @@ public class FSMCallerImpl implements FSMCaller {
         this.disruptor.setDefaultExceptionHandler(new LogExceptionHandler<Object>(getClass().getSimpleName()));
         this.taskQueue = this.disruptor.start();
         return true;
+    }
+
+    @Override
+    public void addLastAppliedLogIndexListener(LastAppliedLogIndexListener listener) {
+        this.lastAppliedLogIndexListeners.add(listener);
     }
 
     @Override
@@ -153,6 +159,7 @@ public class FSMCallerImpl implements FSMCaller {
         this.lastAppliedTerm = lastTerm;
         LOG.info("last applied index: {}, last applied term: {}", this.applyingIndex.get(), this.lastAppliedTerm);
         this.logManager.setAppliedId(lastAppliedId);
+        notifyLastAppliedIndexUpdated(lastIndex);
     }
 
     private void doApplyTasks(final IteratorImpl iterator) {

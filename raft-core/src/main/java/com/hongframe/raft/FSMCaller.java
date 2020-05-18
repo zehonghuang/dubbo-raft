@@ -13,6 +13,8 @@ public interface FSMCaller extends Lifecycle<FSMCallerOptions> {
         void onApplied(final long lastAppliedLogIndex);
     }
 
+    void addLastAppliedLogIndexListener(final LastAppliedLogIndexListener listener);
+
     boolean onCommitted(final long committedIndex);
 
     boolean onLeaderStop(final Status status);
