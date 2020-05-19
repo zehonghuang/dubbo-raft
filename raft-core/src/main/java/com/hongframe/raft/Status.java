@@ -14,6 +14,14 @@ public class Status {
             this.code = code;
             this.msg = msg;
         }
+
+        @Override
+        public String toString() {
+            return "State{" +
+                    "code=" + code +
+                    ", msg='" + msg + '\'' +
+                    '}';
+        }
     }
 
     private State state;
@@ -53,4 +61,10 @@ public class Status {
         return this.state == null ? null : this.state.msg;
     }
 
+    @Override
+    public String toString() {
+        return "Status{" +
+                "state=" + state +
+                '}';
+    }
 }

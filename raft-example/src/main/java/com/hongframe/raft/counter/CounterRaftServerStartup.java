@@ -8,6 +8,8 @@ import com.hongframe.raft.counter.rpc.CounterService;
 import com.hongframe.raft.counter.rpc.CounterServiceImpl;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.option.NodeOptions;
+import com.hongframe.raft.option.RaftOptions;
+import com.hongframe.raft.option.ReadOnlyOption;
 import com.hongframe.raft.rpc.RpcServer;
 import com.hongframe.raft.util.Endpoint;
 import org.slf4j.Logger;
@@ -43,6 +45,11 @@ public class CounterRaftServerStartup {
         configuration.parse(servers);
 
         NodeOptions nodeOptions = new NodeOptions();
+
+        RaftOptions raftOptions = new RaftOptions();
+        raftOptions.setReadOnlyOptions(ReadOnlyOption.ReadOnlyLeaseBased);
+        nodeOptions.setRaftOptions(raftOptions);
+
         nodeOptions.setConfig(configuration);
         nodeOptions.setLogUri(".");
         this.fsm = new CounterStateMachine();

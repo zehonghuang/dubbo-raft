@@ -160,7 +160,7 @@ public class NodeImpl implements Node {
         this.logStorage = new RocksDBLogStorage(this.nodeOptions.getLogUri() + File.separator + "raft_data" + File.separator + this.nodeId.getPeerId().getPort());
         LogStorageOptions logStorageOptions = new LogStorageOptions();
         logStorageOptions.setConfigurationManager(this.configurationManager);
-        logStorageOptions.setCodecFactory(new ProtoLogEntryCodecFactory());//TODO setCodecFactory
+        logStorageOptions.setCodecFactory(new ProtoLogEntryCodecFactory());
         this.logStorage.init(logStorageOptions);
 
         this.logManager = new LogManagerImpl();
@@ -220,6 +220,7 @@ public class NodeImpl implements Node {
         rosOpts.setFsmCaller(this.caller);
         rosOpts.setNode(this);
         rosOpts.setRaftOptions(this.raftOptions);
+        readOnlyService.init(rosOpts);
 
         this.state = State.STATE_FOLLOWER;
 
@@ -557,8 +558,9 @@ public class NodeImpl implements Node {
             return new ErrorResponse(10001, "No leader at term " + this.currTerm);
         }
         request.setPeerId(this.leaderId.toString());
-        this.rpcClient.readIndex(this.leaderId, request, callback);
-
+        if(this.rpcClient.connect(this.leaderId)) {
+            this.rpcClient.readIndex(this.leaderId, request, callback);
+        }
         return null;
     }
 
@@ -574,7 +576,7 @@ public class NodeImpl implements Node {
 
         final long lastCommittedIndex = this.ballotBox.getLastCommittedIndex();
         if (this.logManager.getTerm(lastCommittedIndex) != this.currTerm) {
-            return new ErrorResponse(10001, "");
+            return new ErrorResponse(10001, "this.logManager.getTerm(lastCommittedIndex) != this.currTerm");
         }
         response.setIndex(lastCommittedIndex);
 

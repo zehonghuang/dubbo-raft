@@ -7,6 +7,8 @@ import org.apache.dubbo.common.URL;
 import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.ReferenceConfig;
 import org.apache.dubbo.config.RegistryConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +38,7 @@ public class ClientService extends AbstractRpcClient {
             reference.setUrl(url.toFullString());
             reference.setGeneric("true");
             reference.setAsync(true);
-            reference.setTimeout(1000);
+            reference.setTimeout(10000);
             referenceConfigMap.put(c.getSimpleName(), reference);
         }
 

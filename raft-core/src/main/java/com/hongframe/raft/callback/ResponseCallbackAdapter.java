@@ -32,7 +32,12 @@ public abstract class ResponseCallbackAdapter implements ResponseCallback {
         Message message = response.getData();
         if(Objects.nonNull(message)) {
             setResponse(message);
-            run(Status.OK());
+            if(message instanceof RpcRequests.ErrorResponse) {
+                RpcRequests.ErrorResponse error = (RpcRequests.ErrorResponse) message;
+                run(new Status(error.getErrorCode(), error.getErrorMsg()));
+            } else {
+                run(Status.OK());
+            }
         } else {
             run(new Status(response.getError().getErrorCode(), response.getError().getErrorMsg()));
         }

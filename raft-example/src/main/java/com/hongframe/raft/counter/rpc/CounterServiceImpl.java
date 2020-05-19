@@ -55,7 +55,7 @@ public class CounterServiceImpl implements CounterService {
         final AsyncContext asyncContext = RpcContext.startAsync();
 
         final CounterCallback counterCallback = new CounterCallback(asyncContext);
-
+        LOG.info("getValue: {}", request);
         startup.getNode().readIndex(Bytes.EMPTY_BYTES, new ReadIndexCallback() {
             @Override
             public void run(Status status, long index, byte[] reqCtx) {

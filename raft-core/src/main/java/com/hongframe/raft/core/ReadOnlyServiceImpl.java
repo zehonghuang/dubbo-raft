@@ -131,6 +131,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
         @Override
         public void run(Status status) {
             if (!status.isOk()) {
+                LOG.error("error message: {}", status.getErrorMsg());
+                notifyFail(status);
                 return;
             }
 
@@ -161,6 +163,16 @@ public class ReadOnlyServiceImpl implements ReadOnlyService {
                 }
             }
 
+        }
+
+        private void notifyFail(final Status status) {
+            for (final ReadIndexState state : this.states) {
+                final ReadIndexCallback callback = state.callback;
+                if (callback != null) {
+                    final Bytes reqCtx = state.requestContext;
+                    callback.run(status, ReadIndexCallback.INVALID_LOG_INDEX, reqCtx != null ? reqCtx.get() : null);
+                }
+            }
         }
     }
 

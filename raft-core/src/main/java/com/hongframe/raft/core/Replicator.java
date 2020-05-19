@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Replicator {
 
@@ -40,8 +41,8 @@ public class Replicator {
     private ArrayDeque<FlyingAppendEntries> appendEntriesInFly = new ArrayDeque<>();
     private CompletableFuture<?> heartbeatInFly;
     private ScheduledFuture<?> heartbeatTimer;
-    private int reqSeq = 0;
-    private int requiredNextSeq = 0;
+    private AtomicInteger reqSeq = new AtomicInteger(0);
+    private AtomicInteger requiredNextSeq = new AtomicInteger(0);
     private final PriorityQueue<RpcResponse> pendingResponses = new PriorityQueue<>(50);
 
     private Replicator(ReplicatorOptions options) {
@@ -118,21 +119,29 @@ public class Replicator {
     }
 
     private int getAndIncrementReqSeq() {
-        final int prev = this.reqSeq;
-        this.reqSeq++;
-        if (this.reqSeq < 0) {
-            this.reqSeq = 0;
+        final int prev = this.reqSeq.get();
+        this.reqSeq.incrementAndGet();
+        if (this.reqSeq.get() < 0) {
+            this.reqSeq.set(0);
         }
         return prev;
     }
 
+    public int getReqSeq() {
+        return reqSeq.get();
+    }
+
     private int getAndIncrementRequiredNextSeq() {
-        final int prev = this.requiredNextSeq;
-        this.requiredNextSeq++;
-        if (this.requiredNextSeq < 0) {
-            this.requiredNextSeq = 0;
+        final int prev = this.requiredNextSeq.get();
+        this.requiredNextSeq.incrementAndGet();
+        if (this.requiredNextSeq.get() < 0) {
+            this.requiredNextSeq.set(0);
         }
         return prev;
+    }
+
+    public int getRequiredNextSeq() {
+        return requiredNextSeq.get();
     }
 
     private FlyingAppendEntries pollInFly() {
@@ -194,7 +203,7 @@ public class Replicator {
             final long monotonicSendTimeMs = Utils.monotonicMs();
 
             if (isHeartbeat) {
-                if(heartBeatCallback == null) {
+                if (heartBeatCallback == null) {
                     heartBeatCallback = new ResponseCallbackAdapter() {
                         @Override
                         public void run(Status status) {
@@ -308,8 +317,8 @@ public class Replicator {
             int processed = 0;
             while (!holdingQueue.isEmpty()) {
                 RpcResponse rpcResponse = holdingQueue.peek();
-                if (rpcResponse.seq != replicator.requiredNextSeq) {
-                    LOG.info("request seq illegal : seq {}, required {}", rpcResponse.seq, replicator.requiredNextSeq);
+                if (rpcResponse.seq != replicator.getRequiredNextSeq()) {
+                    LOG.info("request seq illegal : seq {}, required {}", rpcResponse.seq, replicator.getRequiredNextSeq());
                     if (processed > 0) {
                         break;
                     }
@@ -395,6 +404,11 @@ public class Replicator {
                 } finally {
                     //TODO
                     if (continueSendEntries) {
+//                        LOG.info("\n-----------------------------\n" +
+//                                "request: {}\n" +
+//                                "response: {}\n" +
+//                                "RequiredNextSeq: {}" +
+//                                "\n-----------------------------\n", request, response, this.requiredNextSeq);
                         replicator.getAndIncrementRequiredNextSeq();
                     }
                 }
@@ -419,18 +433,17 @@ public class Replicator {
     void resetInflights() {
         this.appendEntriesInFly.clear();
         this.pendingResponses.clear();
-        final int rs = Math.max(this.reqSeq, this.requiredNextSeq);
-        this.reqSeq = this.requiredNextSeq = rs;
+        final int rs = Math.max(this.getReqSeq(), this.getRequiredNextSeq());
+        this.reqSeq.set(rs);
+        this.requiredNextSeq.set(rs);
     }
 
     private void addFlying(long startLogIndex, int entriesSize, int seq, CompletableFuture future) {
         this.fiying = new FlyingAppendEntries(startLogIndex, entriesSize, seq, future);
         this.appendEntriesInFly.add(fiying);
-        LOG.warn(appendEntriesInFly.toString());
     }
 
     private long getNextSendIndex() {
-        LOG.warn("appendEntriesInFly size: {}, nextIndex: {}, send index: {} ", this.appendEntriesInFly.size(), this.nextIndex, this.fiying);
         if (this.appendEntriesInFly.isEmpty()) {
             return this.nextIndex;
         }
