@@ -12,9 +12,11 @@ import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.LogStorage;
 import com.hongframe.raft.storage.RaftMetaStorage;
+import com.hongframe.raft.storage.SnapshotExecutor;
 import com.hongframe.raft.storage.impl.LogManagerImpl;
 import com.hongframe.raft.storage.impl.RaftMetaStorageImpl;
 import com.hongframe.raft.storage.impl.RocksDBLogStorage;
+import com.hongframe.raft.storage.snapshot.SnapshotExecutorImpl;
 import com.hongframe.raft.util.*;
 import com.lmax.disruptor.*;
 import com.lmax.disruptor.dsl.Disruptor;
@@ -79,6 +81,7 @@ public class NodeImpl implements Node {
     private FSMCaller caller;
     private RaftMetaStorage metaStorage;
     private ReplicatorGroup replicatorGroup;
+    private SnapshotExecutor snapshotExecutor;
 
 
     public NodeImpl(String groupId, PeerId serverId) {
@@ -184,6 +187,17 @@ public class NodeImpl implements Node {
         fsmCallerOptions.setLogManager(this.logManager);
         this.caller = new FSMCallerImpl();
         this.caller.init(fsmCallerOptions);
+
+        //TODO SnapshotExecutorImpl 初始化
+//        this.snapshotExecutor = new SnapshotExecutorImpl();
+//        SnapshotExecutorOptions snapshotExecutorOptions = new SnapshotExecutorOptions();
+//        snapshotExecutorOptions.setFsmCaller(this.caller);
+//        snapshotExecutorOptions.setLogManager(this.logManager);
+//        snapshotExecutorOptions.setNode(this);
+//        snapshotExecutorOptions.setInitTerm(this.currTerm);
+//        snapshotExecutorOptions.setAddr(this.serverId.getEndpoint());
+//        snapshotExecutorOptions.setUri(this.nodeOptions.getSnapshotUri());
+//        this.snapshotExecutor.init(snapshotExecutorOptions);
 
         BallotBoxOptions ballotBoxOptions = new BallotBoxOptions();
         ballotBoxOptions.setCaller(this.caller);

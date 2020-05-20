@@ -23,6 +23,8 @@ public class NodeOptions {
 
     private String raftMetaUri;
 
+    private String snapshotUri;
+
     public int getLeaderLeaseTimeRatio() {
         return leaderLeaseTimeRatio;
     }
@@ -33,6 +35,14 @@ public class NodeOptions {
                     + " (expected: 0 < leaderLeaseTimeRatio <= 100)");
         }
         this.leaderLeaseTimeRatio = leaderLeaseTimeRatio;
+    }
+
+    public String getSnapshotUri() {
+        return snapshotUri;
+    }
+
+    public void setSnapshotUri(String snapshotUri) {
+        this.snapshotUri = snapshotUri;
     }
 
     public int getLeaderLeaseTimeoutMs() {
