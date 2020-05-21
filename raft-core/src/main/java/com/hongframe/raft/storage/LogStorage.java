@@ -24,4 +24,6 @@ public interface LogStorage extends Lifecycle<LogStorageOptions> {
 
     int appendEntries(final List<LogEntry> entries);
 
+    boolean truncatePrefix(final long firstIndexKept);
+
 }

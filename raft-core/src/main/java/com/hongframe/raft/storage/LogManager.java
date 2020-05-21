@@ -64,4 +64,6 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
 
     long wait(final long expectedLastLogIndex, final NewLogNotification notify, final Object arg);
 
+    void clearBufferedLogs();
+
 }

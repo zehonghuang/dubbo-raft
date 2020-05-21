@@ -51,6 +51,7 @@ public class LogManagerImpl implements LogManager {
     private long nextWaitId;
     private LogId diskId = new LogId(0, 0);
     private LogId appliedId = new LogId(0, 0);
+    private volatile LogId lastSnapshotId = new LogId(0, 0);
     private volatile long firstLogIndex;
     private volatile long lastLogIndex;
 
@@ -66,6 +67,8 @@ public class LogManagerImpl implements LogManager {
 
     private enum EventType {
         OTHER,
+        RUNCATE_PREFIX,
+        TRUNCATE_SUFFIX,
         LAST_LOG_ID;
     }
 
@@ -308,7 +311,7 @@ public class LogManagerImpl implements LogManager {
             doUnlock = false;
             wakeupAllWaiter();
         } finally {
-            if(doUnlock) {
+            if (doUnlock) {
                 this.writeLock.unlock();
             }
         }
@@ -316,7 +319,7 @@ public class LogManagerImpl implements LogManager {
 
     private boolean wakeupAllWaiter() {
         LOG.info("Node wakeupAllWaiter, wait map: {}", this.waitMap);
-        if(this.waitMap.isEmpty()) {
+        if (this.waitMap.isEmpty()) {
             this.writeLock.unlock();
             return false;
         }
@@ -365,6 +368,30 @@ public class LogManagerImpl implements LogManager {
             }
         }
         return null;
+    }
+
+    @Override
+    public void clearBufferedLogs() {
+        this.writeLock.lock();
+        try {
+            if (this.lastSnapshotId.getIndex() != 0) {
+                truncatePrefix(this.lastSnapshotId.getIndex() + 1);
+            }
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
+
+    private boolean truncatePrefix(final long firstIndexKept) {
+        this.logsInMemory.removeFromFirstWhen(entry -> entry.getId().getIndex() < firstIndexKept);
+        if (firstIndexKept < this.firstLogIndex) {
+            throw new RuntimeException();
+        }
+        this.firstLogIndex = firstIndexKept;
+        if (firstIndexKept > this.lastLogIndex) {
+            this.lastLogIndex = firstIndexKept - 1;
+        }
+        return false;
     }
 
     private class AppendBatcher {

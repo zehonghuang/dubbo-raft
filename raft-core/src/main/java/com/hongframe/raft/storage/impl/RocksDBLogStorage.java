@@ -9,6 +9,7 @@ import com.hongframe.raft.option.LogStorageOptions;
 import com.hongframe.raft.storage.LogStorage;
 import com.hongframe.raft.util.Bits;
 import com.hongframe.raft.util.RocksDBOptionsFactory;
+import com.hongframe.raft.util.Utils;
 import org.apache.commons.io.FileUtils;
 import org.rocksdb.*;
 import org.slf4j.Logger;
@@ -16,7 +17,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -129,10 +132,19 @@ public class RocksDBLogStorage implements LogStorage {
         this.defaultHandle = columnFamilyHandles.get(1);
     }
 
+    public static final byte[] FIRST_LOG_IDX_KEY = "meta/firstLogIndex".getBytes(StandardCharsets.UTF_8);
+
     private void load(final ConfigurationManager confManager) {
         RocksIterator iterator = this.db.newIterator(this.confHandle, this.readOptions);
         while (iterator.isValid()) {
             //TODO Load Configuration
+            final byte[] ks = iterator.key();
+            final byte[] bs = iterator.value();
+
+            if (Arrays.equals(FIRST_LOG_IDX_KEY, ks)) {
+                setFirstLogIndex(Bits.getLong(bs, 0));
+//                truncatePrefixInBackground(0L, this.firstLogIndex);
+            }
             iterator.next();
         }
     }
@@ -159,12 +171,15 @@ public class RocksDBLogStorage implements LogStorage {
     public long getFirstLogIndex() {
         this.readLock.lock();
         try {
-
+            if (this.hasLoadFirstLogIndex) {
+                return this.firstLogIndex;
+            }
             RocksIterator iterator = this.db.newIterator(this.defaultHandle, this.readOptions);
             iterator.seekToFirst();
             if (iterator.isValid()) {
                 long index = Bits.getLong(iterator.key(), 0);
                 setFirstLogIndex(index);
+                saveFirstLogIndex(index);
                 return index;
             }
         } finally {
@@ -176,6 +191,20 @@ public class RocksDBLogStorage implements LogStorage {
     private void setFirstLogIndex(final long index) {
         this.firstLogIndex = index;
         this.hasLoadFirstLogIndex = true; //TODO Conf配置用的
+    }
+
+    private boolean saveFirstLogIndex(final long firstLogIndex) {
+        this.readLock.lock();
+        try {
+            final byte[] vs = new byte[8];
+            Bits.putLong(vs, 0, firstLogIndex);
+            this.db.put(this.confHandle, this.writeOptions, FIRST_LOG_IDX_KEY, vs);
+            return true;
+        } catch (final RocksDBException e) {
+            return false;
+        } finally {
+            this.readLock.unlock();
+        }
     }
 
     @Override
@@ -272,6 +301,39 @@ public class RocksDBLogStorage implements LogStorage {
             this.readLock.unlock();
         }
         return len;
+    }
+
+    @Override
+    public boolean truncatePrefix(long firstIndexKept) {
+        this.readLock.lock();
+        try {
+            final long startIndex = getFirstLogIndex();
+            final boolean ret = saveFirstLogIndex(firstIndexKept);
+            if (ret) {
+                setFirstLogIndex(firstIndexKept);
+            }
+            truncatePrefixInBackground(startIndex, firstIndexKept);
+            return ret;
+        } finally {
+            this.readLock.unlock();
+        }
+    }
+
+    private void truncatePrefixInBackground(final long startIndex, final long firstIndexKept) {
+        Utils.runInThread(() -> {
+            this.readLock.lock();
+            try {
+                if (this.db == null) {
+                    return;
+                }
+                this.db.deleteRange(this.defaultHandle, getKeyBytes(startIndex), getKeyBytes(firstIndexKept));
+//                this.db.deleteRange(this.confHandle, getKeyBytes(startIndex), getKeyBytes(firstIndexKept));
+            } catch (final RocksDBException e) {
+                LOG.error("Fail to truncatePrefix {}.", firstIndexKept, e);
+            } finally {
+                this.readLock.unlock();
+            }
+        });
     }
 
     protected byte[] getKeyBytes(final long index) {

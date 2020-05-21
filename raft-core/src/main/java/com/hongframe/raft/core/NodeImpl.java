@@ -70,6 +70,7 @@ public class NodeImpl implements Node {
     private ReentrantTimer voteTimer;
     private ReentrantTimer electionTimer;
     private ReentrantTimer stepDownTimer;
+    private ReentrantTimer snapshotTimer;
     private Scheduler timerManger;
     private Disruptor<LogEntrAndCallback> applyDisruptor;
     private RingBuffer<LogEntrAndCallback> applyQueue;
@@ -157,6 +158,13 @@ public class NodeImpl implements Node {
             @Override
             protected void onTrigger() {
                 handleStepDownTimeout();
+            }
+        };
+
+        this.snapshotTimer = new ReentrantTimer("Dubbo-raft-SnapshotTimer", this.nodeOptions.getSnapshotIntervalSecs() * 1000) {
+            @Override
+            protected void onTrigger() {
+                handleSnapshotTimeout();
             }
         };
 
@@ -572,7 +580,7 @@ public class NodeImpl implements Node {
             return new ErrorResponse(10001, "No leader at term " + this.currTerm);
         }
         request.setPeerId(this.leaderId.toString());
-        if(this.rpcClient.connect(this.leaderId)) {
+        if (this.rpcClient.connect(this.leaderId)) {
             this.rpcClient.readIndex(this.leaderId, request, callback);
         }
         return null;
@@ -839,6 +847,23 @@ public class NodeImpl implements Node {
         }
     }
 
+    private void handleSnapshotTimeout() {
+        this.writeLock.lock();
+        try {
+            if (!this.state.isActive()) {
+                return;
+            }
+        } finally {
+            this.writeLock.unlock();
+        }
+
+        Utils.runInThread(() -> {
+            if (this.snapshotExecutor != null) {
+                this.snapshotExecutor.doSnapshot(null);
+            }
+        });
+    }
+
     private void checkDeadNodes(final Configuration conf, final long monotonicNowMs) {
         List<PeerId> peerIds = conf.getPeers();
         if (checkDeadNodes0(peerIds, monotonicNowMs)) {
@@ -1042,6 +1067,10 @@ public class NodeImpl implements Node {
         } finally {
             this.writeLock.unlock();
         }
+    }
+
+    public NodeOptions getNodeOptions() {
+        return nodeOptions;
     }
 
     @Override

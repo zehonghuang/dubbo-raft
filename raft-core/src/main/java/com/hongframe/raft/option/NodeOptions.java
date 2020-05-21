@@ -13,6 +13,10 @@ public class NodeOptions {
 
     private int leaderLeaseTimeRatio = 90;
 
+    private int snapshotIntervalSecs = 3600;
+
+    private int snapshotLogIndexMargin = 0;
+
     private RaftOptions raftOptions = new RaftOptions();
 
     private Configuration config;
@@ -37,12 +41,28 @@ public class NodeOptions {
         this.leaderLeaseTimeRatio = leaderLeaseTimeRatio;
     }
 
+    public int getSnapshotIntervalSecs() {
+        return snapshotIntervalSecs;
+    }
+
+    public void setSnapshotIntervalSecs(int snapshotIntervalSecs) {
+        this.snapshotIntervalSecs = snapshotIntervalSecs;
+    }
+
     public String getSnapshotUri() {
         return snapshotUri;
     }
 
     public void setSnapshotUri(String snapshotUri) {
         this.snapshotUri = snapshotUri;
+    }
+
+    public int getSnapshotLogIndexMargin() {
+        return snapshotLogIndexMargin;
+    }
+
+    public void setSnapshotLogIndexMargin(int snapshotLogIndexMargin) {
+        this.snapshotLogIndexMargin = snapshotLogIndexMargin;
     }
 
     public int getLeaderLeaseTimeoutMs() {

@@ -1,5 +1,7 @@
 package com.hongframe.raft.util;
 
+import com.hongframe.raft.Status;
+import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.entity.PeerId;
 import org.apache.commons.lang3.StringUtils;
 
@@ -35,10 +37,30 @@ public class Utils {
     public static long nowMs() {
         return System.currentTimeMillis();
     }
+
     public static Future<?> runInThread(final Runnable runnable) {
         return GLOBAL_EXECUTOR.submit(runnable);
     }
 
+    public static Future<?> runCallbackInThread(final Callback callback) {
+        if (callback == null) {
+            return null;
+        }
+        return runCallbackInThread(callback, Status.OK());
+    }
+
+    public static Future<?> runCallbackInThread(final Callback callback, final Status status) {
+        if (callback == null) {
+            return null;
+        }
+        return runInThread(() -> {
+            try {
+                callback.run(status);
+            } catch (final Throwable t) {
+
+            }
+        });
+    }
 
     public static long monotonicMs() {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
