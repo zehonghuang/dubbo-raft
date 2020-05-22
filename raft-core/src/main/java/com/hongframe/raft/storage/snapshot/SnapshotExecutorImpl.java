@@ -1,8 +1,11 @@
 package com.hongframe.raft.storage.snapshot;
 
 import com.hongframe.raft.FSMCaller;
+import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.callback.SaveSnapshotCallback;
 import com.hongframe.raft.core.NodeImpl;
+import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.SnapshotExecutorOptions;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.SnapshotExecutor;
@@ -25,6 +28,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     private long lastSnapshotTerm;
     private long lastSnapshotIndex;
     private long term;
+    private volatile boolean savingSnapshot;
     private SnapshotStorage snapshotStorage;
     private FSMCaller fsmCaller;
     private NodeImpl node;
@@ -42,6 +46,29 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         this.node = opts.getNode();
         this.term = opts.getInitTerm();
         return false;
+    }
+
+    private class SaveSnapshotDone implements SaveSnapshotCallback {
+        SnapshotWriter writer;
+        Callback callback;
+        SnapshotMeta meta;
+
+        public SaveSnapshotDone(SnapshotWriter writer, Callback callback, SnapshotMeta meta) {
+            this.writer = writer;
+            this.callback = callback;
+            this.meta = meta;
+        }
+
+        @Override
+        public void run(Status status) {
+            //TODO onSnapshotSaveDone
+        }
+
+        @Override
+        public SnapshotWriter start(SnapshotMeta meta) {
+            this.meta = meta;
+            return this.writer;
+        }
     }
 
     @Override
@@ -64,10 +91,15 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             }
             //TODO SnapshotWriter
             SnapshotWriter writer = this.snapshotStorage.create();
-            if(writer == null) {
+            if (writer == null) {
                 //TODO writer NPE
             }
-
+            this.savingSnapshot = true;
+            //TODO SaveSnapshotCallback & fsm.onSnapshotSave()
+            SaveSnapshotDone done = new SaveSnapshotDone(writer, callback, null);
+            if(!this.fsmCaller.onSnapshotSave(done)) {
+                return;//TODO error
+            }
         } finally {
             if (doUnlock) {
                 this.lock.unlock();

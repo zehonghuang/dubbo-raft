@@ -1,5 +1,6 @@
 package com.hongframe.raft;
 
+import com.hongframe.raft.callback.SaveSnapshotCallback;
 import com.hongframe.raft.option.FSMCallerOptions;
 
 /**
@@ -22,6 +23,8 @@ public interface FSMCaller extends Lifecycle<FSMCallerOptions> {
     boolean onLeaderStart(final long term);
 
     long getLastAppliedIndex();
+
+    boolean onSnapshotSave(final SaveSnapshotCallback callback);
 
 
 }

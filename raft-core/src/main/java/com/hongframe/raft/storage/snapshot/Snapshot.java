@@ -6,7 +6,7 @@ package com.hongframe.raft.storage.snapshot;
  */
 public interface Snapshot {
 
-    String JRAFT_SNAPSHOT_PREFIX = "snapshot_";
+    String RAFT_SNAPSHOT_PREFIX = "snapshot_";
 
     String REMOTE_SNAPSHOT_URI_SCHEME = "remote://";
 

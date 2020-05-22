@@ -5,6 +5,7 @@ import com.hongframe.raft.StateMachine;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.CallbackQueue;
+import com.hongframe.raft.callback.SaveSnapshotCallback;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
@@ -190,6 +191,12 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public long getLastAppliedIndex() {
         return this.applyingIndex.get();
+    }
+
+    @Override
+    public boolean onSnapshotSave(SaveSnapshotCallback callback) {
+        //TODO onSnapshotSave
+        return false;
     }
 
     @Override
