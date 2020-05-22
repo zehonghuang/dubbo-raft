@@ -1,5 +1,6 @@
 package com.hongframe.raft.storage.snapshot.local;
 
+import com.google.protobuf.Message;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.storage.snapshot.SnapshotWriter;
 import org.apache.commons.io.FileUtils;
@@ -40,6 +41,11 @@ public class LocalSnapshotWriter implements SnapshotWriter {
             return false;
         }
         return true;
+    }
+
+    @Override
+    public boolean addFile(String fileName, Message fileMeta) {
+        return false;
     }
 
     @Override

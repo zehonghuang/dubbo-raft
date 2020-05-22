@@ -9,8 +9,10 @@ import com.hongframe.raft.callback.SaveSnapshotCallback;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
+import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.FSMCallerOptions;
 import com.hongframe.raft.storage.LogManager;
+import com.hongframe.raft.storage.snapshot.SnapshotWriter;
 import com.hongframe.raft.util.DisruptorBuilder;
 import com.hongframe.raft.util.LogExceptionHandler;
 import com.hongframe.raft.util.NamedThreadFactory;
@@ -36,6 +38,7 @@ public class FSMCallerImpl implements FSMCaller {
     private StateMachine stateMachine;
     private LogManager logManager;
     private NodeImpl node;
+    private volatile TaskType currTask;
     private final AtomicLong applyingIndex;
     private long lastAppliedTerm;
     private final AtomicLong lastAppliedIndex;
@@ -53,6 +56,8 @@ public class FSMCallerImpl implements FSMCaller {
     private enum TaskType {
         IDLE,
         COMMITTED,
+        SNAPSHOT_SAVE,
+        SNAPSHOT_LOAD,
         ERROR,
         ;
     }
@@ -61,11 +66,13 @@ public class FSMCallerImpl implements FSMCaller {
         TaskType type;
         long committedIndex;
         long term;
+        Callback callback;
 
         public void reset() {
             this.type = null;
             this.committedIndex = 0;
             this.term = 0;
+            this.callback = null;
         }
     }
 
@@ -115,14 +122,14 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public boolean onCommitted(long committedIndex) {
         LOG.info("committed index: {}", committedIndex);
-        EventTranslator<CallerTask> tpl = (task, sequence) -> {
+        return publishEvent((task, sequence) -> {
             task.committedIndex = committedIndex;
             task.type = TaskType.COMMITTED;
-        };
-        if (!this.taskQueue.tryPublishEvent(tpl)) {
-            return false;
-        }
-        return true;
+        });
+    }
+
+    private boolean publishEvent(EventTranslator<CallerTask> tpl) {
+        return this.taskQueue.tryPublishEvent(tpl);
     }
 
     private long runApplyTask(final CallerTask task, long maxCommittedIndex, final boolean endOfBatch) {
@@ -131,7 +138,23 @@ public class FSMCallerImpl implements FSMCaller {
             if (task.committedIndex > maxCommittedIndex) {
                 maxCommittedIndex = task.committedIndex;
             }
+        } else {
+            if (maxCommittedIndex >= 0) {
+                this.currTask = TaskType.COMMITTED;
+                doCommitted(maxCommittedIndex);
+                maxCommittedIndex = -1L; // reset maxCommittedIndex
+            }
+
+            switch (task.type) {
+                case SNAPSHOT_SAVE:
+                    this.currTask = TaskType.SNAPSHOT_SAVE;
+                    doSnapshotSave((SaveSnapshotCallback) task.callback);
+                    break;
+                default:
+                    break;
+            }
         }
+
         if (maxCommittedIndex > -1 && endOfBatch) {
             doCommitted(maxCommittedIndex);
             maxCommittedIndex = -1L;
@@ -195,8 +218,23 @@ public class FSMCallerImpl implements FSMCaller {
 
     @Override
     public boolean onSnapshotSave(SaveSnapshotCallback callback) {
-        //TODO onSnapshotSave
-        return false;
+        return publishEvent((task, seq) -> {
+            task.type = TaskType.SNAPSHOT_SAVE;
+            task.callback = callback;
+        });
+    }
+
+    private void doSnapshotSave(final SaveSnapshotCallback callback) {
+        SnapshotMeta meta = new SnapshotMeta();
+        meta.setLastIncludedIndex(this.lastAppliedIndex.get());
+        meta.setLastIncludedTerm(this.lastAppliedTerm);
+
+        final SnapshotWriter writer = callback.start(meta);
+        if (writer == null) {
+            callback.run(new Status(10001, "snapshot_storage create SnapshotWriter failed"));
+            return;
+        }
+        this.stateMachine.onSnapshotSave(writer, callback);
     }
 
     @Override

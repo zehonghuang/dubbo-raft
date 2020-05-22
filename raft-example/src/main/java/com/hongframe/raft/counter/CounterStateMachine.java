@@ -3,9 +3,12 @@ package com.hongframe.raft.counter;
 import com.hongframe.raft.Iterator;
 import com.hongframe.raft.StateMachine;
 import com.hongframe.raft.Status;
+import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.storage.snapshot.SnapshotWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -71,5 +74,20 @@ public class CounterStateMachine implements StateMachine {
     @Override
     public void onLeaderStop(Status status) {
 
+    }
+
+    @Override
+    public void onSnapshotSave(SnapshotWriter writer, Callback callback) {
+        final long currVal = this.value.get();
+        final CounterSnapshotFile snapshot = new CounterSnapshotFile(writer.getPath() + File.separator + "data");
+        if (snapshot.save(currVal)) {
+            if (writer.addFile("data")) {
+                callback.run(Status.OK());
+            } else {
+
+            }
+        } else {
+
+        }
     }
 }
