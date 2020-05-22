@@ -61,7 +61,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
         @Override
         public void run(Status status) {
-            //TODO onSnapshotSaveDone
+            //TODO SaveSnapshotDone.run(status)
+            onSnapshotSaveDone(status, this.writer, this.meta);
         }
 
         @Override
@@ -105,6 +106,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 this.lock.unlock();
             }
         }
+    }
+
+    private int onSnapshotSaveDone(Status status, SnapshotWriter writer, SnapshotMeta meta) {
+
+        return 0;
     }
 
     @Override
