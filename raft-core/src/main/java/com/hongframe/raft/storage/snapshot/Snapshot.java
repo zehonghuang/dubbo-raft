@@ -8,6 +8,8 @@ public interface Snapshot {
 
     String RAFT_SNAPSHOT_PREFIX = "snapshot_";
 
+    String RAFT_SNAPSHOT_META_FILE = "__raft_snapshot_meta";
+
     String REMOTE_SNAPSHOT_URI_SCHEME = "remote://";
 
     String getPath();

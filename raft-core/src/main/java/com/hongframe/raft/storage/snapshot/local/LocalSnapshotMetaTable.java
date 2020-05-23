@@ -2,6 +2,7 @@ package com.hongframe.raft.storage.snapshot.local;
 
 import com.google.protobuf.LazyStringList;
 import com.google.protobuf.ProtocolStringList;
+import com.hongframe.raft.entity.LocalFileMetaOutter;
 import com.hongframe.raft.entity.LocalFileMetaOutter.*;
 import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.RaftOptions;
@@ -36,6 +37,30 @@ public class LocalSnapshotMetaTable {
 
     public boolean removeFile(final String fileName) {
         return this.fileMap.remove(fileName) != null;
+    }
+
+    public boolean saveToFile(String path) throws IOException {
+        LocalSnapshotPbMeta.Builder pbMeta = LocalSnapshotPbMeta.newBuilder();
+        if (this.meta != null) {
+            LocalFileMetaOutter.SnapshotMeta.Builder snMeta = LocalFileMetaOutter.SnapshotMeta.newBuilder();
+            String[] peers = split(this.meta.getPeers());
+            for(int i = 0; i < peers.length; i++) {
+                snMeta.setPeers(i, peers[i]);
+            }
+            String[] oldPeers = split(this.meta.getOldPeers());
+            for(int i = 0; i < oldPeers.length; i++) {
+                snMeta.setOldPeers(i, oldPeers[i]);
+            }
+            snMeta.setLastIncludedIndex(this.meta.getLastIncludedIndex());
+            snMeta.setLastIncludedTerm(this.meta.getLastIncludedTerm());
+            pbMeta.setMeta(snMeta);
+        }
+        for (Map.Entry<String, LocalFileMeta> entry : this.fileMap.entrySet()) {
+            LocalSnapshotPbMeta.File f = LocalSnapshotPbMeta.File.newBuilder().setName(entry.getKey()).setMeta(entry.getValue()).build();
+            pbMeta.addFiles(f);
+        }
+        ProtoBufFile pbFile = new ProtoBufFile(path);
+        return pbFile.save(pbMeta.build(), this.raftOptions.isSyncMeta());
     }
 
     public boolean loadFromFile(String path) throws IOException {
@@ -74,5 +99,9 @@ public class LocalSnapshotMetaTable {
             }
         }
         return peers.toString();
+    }
+
+    private String[] split(String s) {
+        return s.split(",");
     }
 }

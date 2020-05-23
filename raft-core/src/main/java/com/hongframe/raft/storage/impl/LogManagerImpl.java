@@ -7,6 +7,7 @@ import com.hongframe.raft.core.Replicator;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
+import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.LogManagerOptions;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.storage.LogManager;
@@ -382,6 +383,11 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
+    @Override
+    public void setSnapshot(SnapshotMeta meta) {
+        //TODO setSnapshot
+    }
+
     private boolean truncatePrefix(final long firstIndexKept) {
         this.logsInMemory.removeFromFirstWhen(entry -> entry.getId().getIndex() < firstIndexKept);
         if (firstIndexKept < this.firstLogIndex) {
@@ -391,6 +397,8 @@ public class LogManagerImpl implements LogManager {
         if (firstIndexKept > this.lastLogIndex) {
             this.lastLogIndex = firstIndexKept - 1;
         }
+
+        //TODO truncatePrefix callback
         return false;
     }
 

@@ -13,6 +13,7 @@ import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -77,6 +78,10 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         boolean doUnlock = true;
         this.lock.lock();
         try {
+            if (this.savingSnapshot) {
+                Utils.runInThread(() -> callback.run(new Status(10001, "Is saving another snapshot.")));
+                return;
+            }
             //TODO error
             if (this.fsmCaller.getLastAppliedIndex() == this.lastSnapshotIndex) {
                 doUnlock = false;
@@ -98,7 +103,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             this.savingSnapshot = true;
             //TODO SaveSnapshotCallback & fsm.onSnapshotSave()
             SaveSnapshotDone done = new SaveSnapshotDone(writer, callback, null);
-            if(!this.fsmCaller.onSnapshotSave(done)) {
+            if (!this.fsmCaller.onSnapshotSave(done)) {
                 return;//TODO error
             }
         } finally {
@@ -109,8 +114,53 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     }
 
     private int onSnapshotSaveDone(Status status, SnapshotWriter writer, SnapshotMeta meta) {
+        int rest;
+        this.lock.lock();
+        try {
+            rest = status.getCode();
+            if (status.isOk()) {
+                if (meta.getLastIncludedIndex() <= this.lastSnapshotIndex) {
+                    //TODO writer setError
+                }
+            }
+        } finally {
+            this.lock.unlock();
+        }
 
-        return 0;
+        if (rest == 0) {
+            if (!writer.saveMeta(meta)) {
+                //TODO writer.saveMeta fail
+            }
+        }
+
+        try {
+            writer.close();
+        } catch (IOException e) {
+            LOG.error("", e);
+        }
+
+        boolean doUnlock = true;
+        this.lock.lock();
+        try {
+            if (rest == 0) {
+                this.lastSnapshotIndex = meta.getLastIncludedIndex();
+                this.lastSnapshotTerm = meta.getLastIncludedTerm();
+                doUnlock = false;
+                this.lock.unlock();
+                this.logManager.setSnapshot(meta);
+                doUnlock = true;
+                this.lock.lock();
+            } else {
+                //TODO rest is error
+            }
+            this.savingSnapshot = false;
+        } finally {
+            if (doUnlock) {
+                this.lock.unlock();
+            }
+        }
+
+        return rest;
     }
 
     @Override

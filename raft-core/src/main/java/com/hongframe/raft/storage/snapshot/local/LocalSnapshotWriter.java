@@ -2,6 +2,7 @@ package com.hongframe.raft.storage.snapshot.local;
 
 import com.google.protobuf.Message;
 import com.hongframe.raft.entity.LocalFileMetaOutter.*;
+import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.storage.snapshot.SnapshotWriter;
 import org.apache.commons.io.FileUtils;
@@ -43,6 +44,21 @@ public class LocalSnapshotWriter implements SnapshotWriter {
             LOG.error("Fail to create directory {}.", this.path);
             return false;
         }
+        final String metaPath = path + File.separator + RAFT_SNAPSHOT_META_FILE;
+        final File metaFile = new File(metaPath);
+        try {
+            if (metaFile.exists()) {
+                return metaTable.loadFromFile(metaPath);
+            }
+        } catch (final IOException e) {
+            LOG.error("Fail to load snapshot meta from {}.", metaPath);
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean saveMeta(SnapshotMeta meta) {
         return true;
     }
 
@@ -58,6 +74,15 @@ public class LocalSnapshotWriter implements SnapshotWriter {
 
     @Override
     public void shutdown() {
+        try {
+            close();
+        } catch (IOException e) {
+            LOG.error("", e);
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
 
     }
 }

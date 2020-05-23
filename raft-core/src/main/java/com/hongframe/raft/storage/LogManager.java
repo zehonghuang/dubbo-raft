@@ -4,6 +4,7 @@ import com.hongframe.raft.Lifecycle;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.LogId;
+import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.LogManagerOptions;
 
 import java.util.List;
@@ -65,5 +66,7 @@ public interface LogManager extends Lifecycle<LogManagerOptions> {
     long wait(final long expectedLastLogIndex, final NewLogNotification notify, final Object arg);
 
     void clearBufferedLogs();
+
+    void setSnapshot(final SnapshotMeta meta);
 
 }

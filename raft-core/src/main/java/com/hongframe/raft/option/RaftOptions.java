@@ -26,6 +26,10 @@ public class RaftOptions {
 
     private int maxReplicatorFlyingMsgs = 256;
 
+    private boolean sync = true;
+
+    private boolean syncMeta = false;
+
     private ReadOnlyOption readOnlyOptions = ReadOnlyOption.ReadOnlySafe;
 
     public ReadOnlyOption getReadOnlyOptions() {
@@ -114,5 +118,21 @@ public class RaftOptions {
 
     public void setMaxReplicatorFlyingMsgs(int maxReplicatorFlyingMsgs) {
         this.maxReplicatorFlyingMsgs = maxReplicatorFlyingMsgs;
+    }
+
+    public boolean isSync() {
+        return this.sync;
+    }
+
+    public void setSync(final boolean sync) {
+        this.sync = sync;
+    }
+
+    public boolean isSyncMeta() {
+        return this.sync || this.syncMeta;
+    }
+
+    public void setSyncMeta(final boolean syncMeta) {
+        this.syncMeta = syncMeta;
     }
 }
