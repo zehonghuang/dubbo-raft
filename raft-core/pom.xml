@@ -16,6 +16,7 @@
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
             <version>3.11.4</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
@@ -34,19 +35,15 @@
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
-                <version>0.5.1</version>
+                <version>0.6.1</version>
                 <extensions>true</extensions>
                 <configuration>
+                    <writeDescriptorSet>true</writeDescriptorSet>
+                    <descriptorSetOutputDirectory>${project.build.directory}/generated-sources/protobuf/descriptor-sets</descriptorSetOutputDirectory>
+                    <descriptorSetFileName>raft.protobin</descriptorSetFileName>
                     <protoSourceRoot>${project.basedir}/src/main/resources</protoSourceRoot>
                     <protocArtifact>com.google.protobuf:protoc:3.2.0:exe:${os.detected.classifier}</protocArtifact>
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

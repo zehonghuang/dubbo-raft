@@ -1,6 +1,7 @@
 package com.hongframe.raft.storage.snapshot.local;
 
 import com.google.protobuf.Message;
+import com.hongframe.raft.entity.LocalFileMetaOutter.*;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.storage.snapshot.SnapshotWriter;
 import org.apache.commons.io.FileUtils;
@@ -18,12 +19,14 @@ public class LocalSnapshotWriter implements SnapshotWriter {
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotWriter.class);
 
+    private final LocalSnapshotMetaTable metaTable;
     private final String path;
     private final LocalSnapshotStorage snapshotStorage;
 
     public LocalSnapshotWriter(String path, LocalSnapshotStorage snapshotStorage, RaftOptions raftOptions) {
         this.path = path;
         this.snapshotStorage = snapshotStorage;
+        this.metaTable = new LocalSnapshotMetaTable(raftOptions);
     }
 
     @Override
@@ -45,7 +48,12 @@ public class LocalSnapshotWriter implements SnapshotWriter {
 
     @Override
     public boolean addFile(String fileName, Message fileMeta) {
-        return false;
+        final LocalFileMeta.Builder metaBuilder = LocalFileMeta.newBuilder();
+        if (fileMeta != null) {
+            metaBuilder.mergeFrom(fileMeta);
+        }
+        final LocalFileMeta meta = metaBuilder.build();
+        return this.metaTable.addFile(fileName, meta);
     }
 
     @Override

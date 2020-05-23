@@ -14,3 +14,21 @@ message LocalFileMeta {
     optional FileSource source = 2;
     optional string checksum   = 3;
 }
+
+message SnapshotMeta {
+    required int64 last_included_index = 1;
+    required int64 last_included_term = 2;
+    repeated string peers = 3;
+    repeated string old_peers = 4;
+    repeated string learners = 5;
+    repeated string old_learners = 6;
+}
+
+message LocalSnapshotPbMeta {
+    message File {
+        required string name = 1;
+        optional LocalFileMeta meta = 2;
+    };
+    optional SnapshotMeta meta = 1;
+    repeated File files = 2;
+}

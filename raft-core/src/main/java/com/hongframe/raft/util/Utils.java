@@ -4,8 +4,16 @@ import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.entity.PeerId;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.concurrent.*;
 
 /**
@@ -13,6 +21,8 @@ import java.util.concurrent.*;
  * @version create time: 2020-04-15 21:42
  */
 public class Utils {
+
+    private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
 
     public static final int CPUS = SystemPropertyUtil.getInt(
             "dubbo.raft.available_processors", Runtime
@@ -107,6 +117,45 @@ public class Utils {
             return peer;
         }
         throw new IllegalArgumentException("Invalid peer str:" + s);
+    }
+
+    public static boolean atomicMoveFile(final File source, final File target) throws IOException {
+        // Move temp file to target path atomically.
+        // The code comes from https://github.com/jenkinsci/jenkins/blob/master/core/src/main/java/hudson/util/AtomicFileWriter.java#L187
+        final Path sourcePath = source.toPath();
+        final Path targetPath = target.toPath();
+        try {
+            return Files.move(sourcePath, targetPath, StandardCopyOption.ATOMIC_MOVE) != null;
+        } catch (final IOException e) {
+            // If it falls here that can mean many things. Either that the atomic move is not supported,
+            // or something wrong happened. Anyway, let's try to be over-diagnosing
+            if (e instanceof AtomicMoveNotSupportedException) {
+                LOG.warn("Atomic move not supported. falling back to non-atomic move, error: {}.", e.getMessage());
+            } else {
+                LOG.warn("Unable to move atomically, falling back to non-atomic move, error: {}.", e.getMessage());
+            }
+
+            if (target.exists()) {
+                LOG.info("The target file {} was already existing.", targetPath);
+            }
+
+            try {
+                return Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING) != null;
+            } catch (final IOException e1) {
+                e1.addSuppressed(e);
+                LOG.warn("Unable to move {} to {}. Attempting to delete {} and abandoning.", sourcePath, targetPath,
+                        sourcePath);
+                try {
+                    Files.deleteIfExists(sourcePath);
+                } catch (final IOException e2) {
+                    e2.addSuppressed(e1);
+                    LOG.warn("Unable to delete {}, good bye then!", sourcePath);
+                    throw e2;
+                }
+
+                throw e1;
+            }
+        }
     }
 
 
