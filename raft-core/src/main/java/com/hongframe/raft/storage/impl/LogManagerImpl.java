@@ -68,7 +68,7 @@ public class LogManagerImpl implements LogManager {
 
     private enum EventType {
         OTHER,
-        RUNCATE_PREFIX,
+        TRUNCATE_PREFIX,
         TRUNCATE_SUFFIX,
         LAST_LOG_ID;
     }
@@ -117,6 +117,7 @@ public class LogManagerImpl implements LogManager {
         public void onEvent(FlushDoneCallbackEvent event, long sequence, boolean endOfBatch) throws Exception {
             //TODO FlushDoneCallbackEventHandler
             FlushDoneCallback callback = event.callback;
+            boolean rest = false;
             if (callback.getEntries() != null && !callback.getEntries().isEmpty()) {
                 this.batcher.append(callback);
             } else {
@@ -125,9 +126,19 @@ public class LogManagerImpl implements LogManager {
                     case LAST_LOG_ID:
                         ((LastLogIdCallback) event.callback).setLastLogId(this.lastId);
                         break;
+                    case TRUNCATE_PREFIX:
+                        TruncatePrefixCallback tpc = (TruncatePrefixCallback) callback;
+                        LOG.debug("Truncating storage to firstIndexKept={}.", tpc.firstIndexKept);
+                        rest = LogManagerImpl.this.logStorage.truncatePrefix(tpc.firstIndexKept);
+                        break;
                 }
-                event.callback.run(Status.OK());
+                if (rest) {
+                    callback.run(Status.OK());
+                } else {
+                    //TODO error
+                }
             }
+
             if (endOfBatch) {
                 this.lastId = this.batcher.flush();
                 setDiskId(this.lastId);
@@ -276,6 +287,30 @@ public class LogManagerImpl implements LogManager {
         return 0;
     }
 
+    private long unsafeGetTerm(final long index) {
+        if (index == 0) {
+            return 0;
+        }
+
+        final LogId lss = this.lastSnapshotId;
+        if (index == lss.getIndex()) {
+            return lss.getTerm();
+        }
+        if (index > this.lastLogIndex || index < this.firstLogIndex) {
+            return 0;
+        }
+        LogEntry entry = getEntryFromMemory(index);
+        if (entry != null) {
+            return entry.getId().getTerm();
+        }
+
+        entry = this.logStorage.getEntry(index);
+        if (entry != null) {
+            return entry.getId().getTerm();
+        }
+        return 0;
+    }
+
     @Override
     public void appendEntries(List<LogEntry> entries, FlushDoneCallback callback) {
         boolean doUnlock = true;
@@ -385,7 +420,52 @@ public class LogManagerImpl implements LogManager {
 
     @Override
     public void setSnapshot(SnapshotMeta meta) {
-        //TODO setSnapshot
+        this.writeLock.lock();
+        try {
+            if (meta.getLastIncludedIndex() <= this.lastSnapshotId.getIndex()) {
+                return;
+            }
+
+            final long term = unsafeGetTerm(meta.getLastIncludedIndex());
+            final long savedLastSnapshotIndex = this.lastSnapshotId.getIndex();//上一次快照index
+
+            this.lastSnapshotId.setIndex(meta.getLastIncludedIndex());
+            this.lastSnapshotId.setTerm(meta.getLastIncludedTerm());
+
+            if (this.lastSnapshotId.compareTo(this.appliedId) > 0) {
+                this.appliedId = this.lastSnapshotId.copy();
+            }
+            if (this.lastSnapshotId.compareTo(this.diskId) > 0) {
+                this.diskId = this.lastSnapshotId.copy();
+            }
+
+            if (term == 0) {
+                // Follower日志落后，把此前所有日志删除，这里不存在includedIndex < firstLogIndex的情况
+                truncatePrefix(meta.getLastIncludedIndex() + 1);
+            } else if (term == meta.getLastIncludedTerm()) {
+                if (savedLastSnapshotIndex > 0) { // 这里跳过首次快照
+                    truncatePrefix(savedLastSnapshotIndex + 1);
+                }
+            } else {
+                //TODO reset
+            }
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
+
+    private class TruncatePrefixCallback extends FlushDoneCallback {
+        long firstIndexKept;
+
+        public TruncatePrefixCallback(long firstIndexKept) {
+            super(null);
+            this.firstIndexKept = firstIndexKept;
+        }
+
+        @Override
+        public void run(Status status) {
+
+        }
     }
 
     private boolean truncatePrefix(final long firstIndexKept) {
@@ -397,9 +477,14 @@ public class LogManagerImpl implements LogManager {
         if (firstIndexKept > this.lastLogIndex) {
             this.lastLogIndex = firstIndexKept - 1;
         }
-
-        //TODO truncatePrefix callback
-        return false;
+        TruncatePrefixCallback callback = new TruncatePrefixCallback(firstIndexKept);
+        if (!this.diskQueue.tryPublishEvent(((event, sequence) -> {
+            event.callback = callback;
+            event.type = EventType.TRUNCATE_PREFIX;
+        }))) {
+            //TODO tryPublishEvent error
+        }
+        return true;
     }
 
     private class AppendBatcher {
