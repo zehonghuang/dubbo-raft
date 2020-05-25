@@ -125,6 +125,7 @@ public class LogManagerImpl implements LogManager {
                 switch (event.type) {
                     case LAST_LOG_ID:
                         ((LastLogIdCallback) event.callback).setLastLogId(this.lastId);
+                        rest = true;
                         break;
                     case TRUNCATE_PREFIX:
                         TruncatePrefixCallback tpc = (TruncatePrefixCallback) callback;

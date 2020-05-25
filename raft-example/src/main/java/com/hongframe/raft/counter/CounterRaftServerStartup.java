@@ -15,6 +15,8 @@ import com.hongframe.raft.util.Endpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
  * create time: 2020-04-24 22:32
@@ -51,7 +53,10 @@ public class CounterRaftServerStartup {
         nodeOptions.setRaftOptions(raftOptions);
 
         nodeOptions.setConfig(configuration);
-        nodeOptions.setLogUri(".");
+        nodeOptions.setLogUri("." + File.separator + "__data");
+        nodeOptions.setSnapshotUri(".");
+        nodeOptions.setSnapshotIntervalSecs(60);
+
         this.fsm = new CounterStateMachine();
         nodeOptions.setStateMachine(this.fsm);
 

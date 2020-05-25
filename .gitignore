@@ -13,6 +13,7 @@
 .idea/
 raft_data/
 raft_meta/
+__data/
 
 # Package Files #
 *.jar

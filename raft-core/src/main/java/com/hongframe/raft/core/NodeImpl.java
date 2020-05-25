@@ -168,7 +168,7 @@ public class NodeImpl implements Node {
             }
         };
 
-        this.logStorage = new RocksDBLogStorage(this.nodeOptions.getLogUri() + File.separator + "raft_data" + File.separator + this.nodeId.getPeerId().getPort());
+        this.logStorage = new RocksDBLogStorage(gencPath(this.nodeOptions.getLogUri(), "raft_log"));
         LogStorageOptions logStorageOptions = new LogStorageOptions();
         logStorageOptions.setConfigurationManager(this.configurationManager);
         logStorageOptions.setCodecFactory(new ProtoLogEntryCodecFactory());
@@ -182,7 +182,7 @@ public class NodeImpl implements Node {
         logManagerOptions.setConfigurationManager(this.configurationManager);
         this.logManager.init(logManagerOptions);
 
-        this.metaStorage = new RaftMetaStorageImpl(this.nodeOptions.getLogUri() + File.separator + "raft_meta" + File.separator + this.serverId.toString());
+        this.metaStorage = new RaftMetaStorageImpl(gencPath(this.nodeOptions.getLogUri(), "raft_meta"));
         this.currTerm = this.metaStorage.getTerm();
         this.voteId = this.metaStorage.getVotedFor().copy();
 
@@ -204,7 +204,7 @@ public class NodeImpl implements Node {
 //        snapshotExecutorOptions.setNode(this);
 //        snapshotExecutorOptions.setInitTerm(this.currTerm);
 //        snapshotExecutorOptions.setAddr(this.serverId.getEndpoint());
-//        snapshotExecutorOptions.setUri(this.nodeOptions.getSnapshotUri());
+//        snapshotExecutorOptions.setUri(gencPath(this.nodeOptions.getSnapshotUri(), "snapshot"));
 //        this.snapshotExecutor.init(snapshotExecutorOptions);
 
         BallotBoxOptions ballotBoxOptions = new BallotBoxOptions();
@@ -246,8 +246,20 @@ public class NodeImpl implements Node {
 
         this.state = State.STATE_FOLLOWER;
 
+        if (this.snapshotExecutor != null && this.nodeOptions.getSnapshotIntervalSecs() > 0) {
+            this.snapshotTimer.start();
+        }
+
         stepDown(this.currTerm, new Status(10001, "node init"));
         return true;
+    }
+
+    private String gencPath(String uri, String dir) {
+        StringBuilder path = new StringBuilder()
+                .append(uri).append(File.separator)
+                .append(this.nodeId.getPeerId().getPort()).append(File.separator)
+                .append(dir);
+        return path.toString();
     }
 
     private int randomTimeout(final int timeoutMs) {
