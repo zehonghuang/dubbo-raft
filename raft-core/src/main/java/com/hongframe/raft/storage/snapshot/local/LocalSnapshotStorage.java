@@ -115,7 +115,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
     }
 
     public SnapshotWriter create(final boolean fromEmpty) {
-        LocalSnapshotWriter writer = null;
+        LocalSnapshotWriter writer;
 
         final String snapshotPath = this.path + File.separator + TEMP_PATH;
         if (new File(snapshotPath).exists() && fromEmpty) {
@@ -123,10 +123,12 @@ public class LocalSnapshotStorage implements SnapshotStorage {
                 return null;
             }
         }
+        writer = new LocalSnapshotWriter(snapshotPath, this, this.raftOptions);
         if (!writer.init(null)) {
             LOG.error("Fail to init snapshot writer.");
             return null;
         }
+        LOG.info("ceate local snaphot writer!");
         return writer;
     }
 

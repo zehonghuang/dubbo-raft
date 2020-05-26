@@ -197,15 +197,15 @@ public class NodeImpl implements Node {
         this.caller.init(fsmCallerOptions);
 
         //TODO SnapshotExecutorImpl 初始化
-//        this.snapshotExecutor = new SnapshotExecutorImpl();
-//        SnapshotExecutorOptions snapshotExecutorOptions = new SnapshotExecutorOptions();
-//        snapshotExecutorOptions.setFsmCaller(this.caller);
-//        snapshotExecutorOptions.setLogManager(this.logManager);
-//        snapshotExecutorOptions.setNode(this);
-//        snapshotExecutorOptions.setInitTerm(this.currTerm);
-//        snapshotExecutorOptions.setAddr(this.serverId.getEndpoint());
-//        snapshotExecutorOptions.setUri(gencPath(this.nodeOptions.getSnapshotUri(), "snapshot"));
-//        this.snapshotExecutor.init(snapshotExecutorOptions);
+        this.snapshotExecutor = new SnapshotExecutorImpl();
+        SnapshotExecutorOptions snapshotExecutorOptions = new SnapshotExecutorOptions();
+        snapshotExecutorOptions.setFsmCaller(this.caller);
+        snapshotExecutorOptions.setLogManager(this.logManager);
+        snapshotExecutorOptions.setNode(this);
+        snapshotExecutorOptions.setInitTerm(this.currTerm);
+        snapshotExecutorOptions.setAddr(this.serverId.getEndpoint());
+        snapshotExecutorOptions.setUri(gencPath(this.nodeOptions.getSnapshotUri(), "snapshot"));
+        this.snapshotExecutor.init(snapshotExecutorOptions);
 
         BallotBoxOptions ballotBoxOptions = new BallotBoxOptions();
         ballotBoxOptions.setCaller(this.caller);

@@ -228,7 +228,7 @@ public class FSMCallerImpl implements FSMCaller {
         SnapshotMeta meta = new SnapshotMeta();
         meta.setLastIncludedIndex(this.lastAppliedIndex.get());
         meta.setLastIncludedTerm(this.lastAppliedTerm);
-
+        LOG.info("Do snapshot save, meta: {}", meta);
         final SnapshotWriter writer = callback.start(meta);
         if (writer == null) {
             callback.run(new Status(10001, "snapshot_storage create SnapshotWriter failed"));

@@ -37,24 +37,24 @@ public class CounterClient {
 
         incrementAndGet(leader, clientService);
 
-        List<PeerId> peerIds = RouteTable.getInstance().getConf(CounterRaftServerStartup.GROUP).getPeers();
-        peerIds.remove(leader);
-
-        for(PeerId peerId : peerIds) {
-            System.out.println(peerId);
-            getValue(peerId, clientService);
-        }
-
-        incrementAndGet(leader, clientService);
+//        List<PeerId> peerIds = RouteTable.getInstance().getConf(CounterRaftServerStartup.GROUP).getPeers();
+//        peerIds.remove(leader);
+//
+//        for(PeerId peerId : peerIds) {
+//            System.out.println(peerId);
+//            getValue(peerId, clientService);
+//        }
+//
+//        incrementAndGet(leader, clientService);
 
     }
 
 
     private static void incrementAndGet(PeerId leader, ClientService clientService) {
         if(clientService.connect(leader)) {
-            for(int i = 0; i < 4; i++) {
+            for(int i = 0; i < 10; i++) {
                 IncrementAndGetRequest request = new IncrementAndGetRequest();
-                request.setValue((i + 1) * 10);
+                request.setValue((i + 1) * 100);
                 clientService.invokeAsync(leader, request, new ResponseCallbackAdapter() {
                     @Override
                     public void run(Status status) {

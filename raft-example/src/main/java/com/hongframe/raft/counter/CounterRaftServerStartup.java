@@ -50,11 +50,12 @@ public class CounterRaftServerStartup {
 
         RaftOptions raftOptions = new RaftOptions();
         raftOptions.setReadOnlyOptions(ReadOnlyOption.ReadOnlyLeaseBased);
+        raftOptions.setMaxReplicatorFlyingMsgs(8);
         nodeOptions.setRaftOptions(raftOptions);
 
         nodeOptions.setConfig(configuration);
         nodeOptions.setLogUri("." + File.separator + "__data");
-        nodeOptions.setSnapshotUri(".");
+        nodeOptions.setSnapshotUri("." + File.separator + "__data");
         nodeOptions.setSnapshotIntervalSecs(60);
 
         this.fsm = new CounterStateMachine();

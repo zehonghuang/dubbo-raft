@@ -9,6 +9,7 @@ import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.SnapshotExecutorOptions;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.SnapshotExecutor;
+import com.hongframe.raft.storage.snapshot.local.LocalSnapshotStorage;
 import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +47,10 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         this.fsmCaller = opts.getFsmCaller();
         this.node = opts.getNode();
         this.term = opts.getInitTerm();
-        return false;
+
+        this.snapshotStorage = new LocalSnapshotStorage(opts.getUri(), this.node.getNodeOptions().getRaftOptions());
+        this.snapshotStorage.init(null);
+        return true;
     }
 
     private class SaveSnapshotDone implements SaveSnapshotCallback {
@@ -75,6 +79,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     @Override
     public void doSnapshot(Callback callback) {
+        LOG.info("Node {} start do snapshot.", this.node.getNodeId());
         boolean doUnlock = true;
         this.lock.lock();
         try {
@@ -86,12 +91,14 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             if (this.fsmCaller.getLastAppliedIndex() == this.lastSnapshotIndex) {
                 doUnlock = false;
                 this.lock.unlock();
+                LOG.info("Node {} last applied index equals last snaphot index: {}", this.node.getNodeId(), this.lastSnapshotIndex);
                 this.logManager.clearBufferedLogs();
                 Utils.runCallbackInThread(callback);
                 return;
             }
 
             final long distance = this.fsmCaller.getLastAppliedIndex() - this.lastSnapshotIndex;
+            LOG.info("Node {} distance: {}", this.node.getNodeId(), distance);
             if (distance < this.node.getNodeOptions().getSnapshotLogIndexMargin()) {
                 //TODO SnapshotLogIndexMargin = 0
             }

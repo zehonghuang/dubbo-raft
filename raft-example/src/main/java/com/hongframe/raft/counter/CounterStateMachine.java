@@ -78,6 +78,7 @@ public class CounterStateMachine implements StateMachine {
 
     @Override
     public void onSnapshotSave(SnapshotWriter writer, Callback callback) {
+        LOG.info("onSnapshotSave");
         final long currVal = this.value.get();
         final CounterSnapshotFile snapshot = new CounterSnapshotFile(writer.getPath() + File.separator + "data");
         if (snapshot.save(currVal)) {
