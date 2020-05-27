@@ -101,6 +101,18 @@ public class LocalSnapshotMetaTable {
         return peers.toString();
     }
 
+    public void setMeta(SnapshotMeta meta) {
+        this.meta = meta;
+    }
+
+    public SnapshotMeta getMeta() {
+        return this.meta;
+    }
+
+    public boolean hasMeta() {
+        return this.meta != null;
+    }
+
     private String[] split(String s) {
         return s.split(",");
     }

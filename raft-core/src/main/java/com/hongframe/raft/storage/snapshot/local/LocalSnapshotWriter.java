@@ -16,7 +16,7 @@ import java.io.IOException;
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
  * create time: 2020-05-21 21:14
  */
-public class LocalSnapshotWriter implements SnapshotWriter {
+public class LocalSnapshotWriter extends SnapshotWriter {
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotWriter.class);
 
@@ -59,7 +59,12 @@ public class LocalSnapshotWriter implements SnapshotWriter {
 
     @Override
     public boolean saveMeta(SnapshotMeta meta) {
+        this.metaTable.setMeta(meta);
         return true;
+    }
+
+    public boolean sync() throws IOException {
+        return this.metaTable.saveToFile(this.path + File.separator + RAFT_SNAPSHOT_META_FILE);
     }
 
     @Override
@@ -72,6 +77,11 @@ public class LocalSnapshotWriter implements SnapshotWriter {
         return this.metaTable.addFile(fileName, meta);
     }
 
+    public long getSnapshotIndex() {
+        return this.metaTable.hasMeta() ? this.metaTable.getMeta().getLastIncludedIndex() : 0;
+    }
+
+
     @Override
     public void shutdown() {
         try {
@@ -82,7 +92,12 @@ public class LocalSnapshotWriter implements SnapshotWriter {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close(boolean keepDataOnError) throws IOException {
+        this.snapshotStorage.close(this, keepDataOnError);
+    }
 
+    @Override
+    public void close() throws IOException {
+        close(false);
     }
 }

@@ -14,29 +14,35 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
  * create time: 2020-05-21 19:43
  */
-public class LocalSnapshotStorage implements SnapshotStorage {
+public class LocalSnapshotStorage extends SnapshotStorage {
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalSnapshotStorage.class);
 
     private static final String TEMP_PATH = "temp";
+    /**
+     * 文件打开计数器
+     */
+    private final ConcurrentMap<Long, AtomicInteger> refMap = new ConcurrentHashMap<>();
     private final String path;
     private boolean filterBeforeCopyRemote;
     private long lastSnapshotIndex;
+    private final Lock lock;
     private final RaftOptions raftOptions;
 
     public LocalSnapshotStorage(String path, RaftOptions raftOptions) {
         this.path = path;
         this.raftOptions = raftOptions;
-    }
-
-    @Override
-    public SnapshotReader open() {
-        return null;
+        this.lock = new ReentrantLock();
     }
 
     @Override
@@ -88,7 +94,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
                 }
             }
             this.lastSnapshotIndex = snapshots.get(snapshotCount - 1);
-//            ref(this.lastSnapshotIndex);
+            ref(this.lastSnapshotIndex);
         }
         return true;
     }
@@ -102,6 +108,32 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         } catch (final IOException e) {
             LOG.error("Fail to destroy snapshot {}.", path);
             return false;
+        }
+    }
+
+    void ref(final long index) {
+        final AtomicInteger refs = getRefs(index);
+        refs.incrementAndGet();
+    }
+
+    AtomicInteger getRefs(final long index) {
+        AtomicInteger refs = this.refMap.get(index);
+        if (refs == null) {
+            refs = new AtomicInteger(0);
+            final AtomicInteger eRefs = this.refMap.putIfAbsent(index, refs);
+            if (eRefs != null) {
+                refs = eRefs;
+            }
+        }
+        return refs;
+    }
+
+    void unref(final long index) {
+        final AtomicInteger refs = getRefs(index);
+        if (refs.decrementAndGet() == 0) {
+            if (this.refMap.remove(index, refs)) {
+                destroySnapshot(getSnapshotPath(index));
+            }
         }
     }
 
@@ -130,6 +162,74 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         }
         LOG.info("ceate local snaphot writer!");
         return writer;
+    }
+
+    @Override
+    public SnapshotReader open() {
+        return null;
+    }
+
+    @Override
+    public void close(LocalSnapshotWriter writer, boolean keepDataOnError) {
+        int ret = writer.getCode();
+
+        try {
+            if (ret != 0) {
+                return;
+            }
+            try {
+                if (!writer.sync()) {
+                    return;
+                }
+            } catch (IOException e) {
+                LOG.error("Fail to sync writer {}.", writer.getPath());
+                ret = 10001;
+                return;
+            }
+
+            final long oldIndex = getLastSnapshotIndex();
+            final long newIndex = writer.getSnapshotIndex();
+            if (oldIndex == newIndex) {
+                ret = 10001;
+                return;
+            }
+
+            final String tempPath = this.path + File.separator + TEMP_PATH;
+            final String newPath = getSnapshotPath(newIndex);
+            if (!destroySnapshot(newPath)) {
+                LOG.warn("Delete new snapshot path failed, path is {}.", newPath);
+                ret = 10001;
+                return;
+            }
+            LOG.info("Renaming {} to {}.", tempPath, newPath);
+            if (!new File(tempPath).renameTo(new File(newPath))) {
+                LOG.error("Renamed temp snapshot failed, from path {} to path {}.", tempPath, newPath);
+                ret = 10001;
+                return;
+            }
+            ref(newIndex);
+            this.lock.lock();
+            try {
+                this.lastSnapshotIndex = newIndex;
+            } finally {
+                this.lock.unlock();
+            }
+            unref(oldIndex);//释放旧快照文件
+        } finally {
+            if (ret != 0) {
+                //TODO error
+            }
+        }
+
+    }
+
+    public long getLastSnapshotIndex() {
+        this.lock.lock();
+        try {
+            return this.lastSnapshotIndex;
+        } finally {
+            this.lock.unlock();
+        }
     }
 
     @Override
