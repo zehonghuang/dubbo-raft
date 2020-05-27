@@ -28,3 +28,13 @@
     - KV存储动态分片
     - 无状态机版Raft
         - 基于AMQP的分布式消息队列
+        
+- 相关文献 & 其他拓展
+
+    《[CONSENSUS: BRIDGING THEORY AND PRACTICE](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf)》
+    
+    《[In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf)》
+    
+    《[PacificA: Replication in Log-Based Distributed Storage Systems](https://www.microsoft.com/en-us/research/publication/pacifica-replication-in-log-based-distributed-storage-systems/)》
+    
+    
