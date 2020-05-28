@@ -4,6 +4,7 @@ import com.hongframe.raft.Iterator;
 import com.hongframe.raft.StateMachine;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.storage.snapshot.SnapshotReader;
 import com.hongframe.raft.storage.snapshot.SnapshotWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,5 +91,10 @@ public class CounterStateMachine implements StateMachine {
         } else {
 
         }
+    }
+
+    @Override
+    public boolean onSnapshotLoad(SnapshotReader reader) {
+        return false;
     }
 }

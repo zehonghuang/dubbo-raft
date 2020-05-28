@@ -3,6 +3,7 @@ package com.hongframe.raft.storage.snapshot;
 import com.hongframe.raft.FSMCaller;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.callback.LoadSnapshotCallback;
 import com.hongframe.raft.callback.SaveSnapshotCallback;
 import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.SnapshotMeta;
@@ -15,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -31,10 +33,12 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     private long lastSnapshotIndex;
     private long term;
     private volatile boolean savingSnapshot;
+    private volatile boolean loadingSnapshot;
     private SnapshotStorage snapshotStorage;
     private FSMCaller fsmCaller;
     private NodeImpl node;
     private LogManager logManager;
+    private SnapshotMeta loadingSnapshotMeta;
 
     @Override
     public NodeImpl getNode() {
@@ -50,6 +54,26 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
         this.snapshotStorage = new LocalSnapshotStorage(opts.getUri(), this.node.getNodeOptions().getRaftOptions());
         this.snapshotStorage.init(null);
+
+        final SnapshotReader reader = this.snapshotStorage.open();
+        if (reader == null) {
+            return true;
+        }
+        this.loadingSnapshotMeta = reader.load();
+        if (this.loadingSnapshotMeta == null) {
+            try {
+                reader.close();
+            } catch (IOException e) {
+                LOG.error("", e);
+            }
+            return false;
+        }
+        LOG.info("Loading snapshot, meta={}.", this.loadingSnapshotMeta);
+        this.loadingSnapshot = true;
+        FirstSnapshotLoadDone loadDone = new FirstSnapshotLoadDone(reader);
+        if (!this.fsmCaller.onSnapshotLoad(loadDone)) {
+            return false;
+        }
         return true;
     }
 
@@ -74,6 +98,28 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         public SnapshotWriter start(SnapshotMeta meta) {
             this.meta = meta;
             return this.writer;
+        }
+    }
+
+    private class FirstSnapshotLoadDone implements LoadSnapshotCallback {
+
+        private SnapshotReader reader;
+        private CountDownLatch eventLatch;
+
+        public FirstSnapshotLoadDone(SnapshotReader reader) {
+            this.reader = reader;
+            this.eventLatch = new CountDownLatch(1);
+        }
+
+        @Override
+        public SnapshotReader start() {
+            return this.reader;
+        }
+
+        @Override
+        public void run(Status status) {
+            onSnapshotLoadDone(status);
+            this.eventLatch.countDown();
         }
     }
 
@@ -168,6 +214,29 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
 
         return rest;
+    }
+
+    private void onSnapshotLoadDone(Status status) {
+        boolean doUnlock = true;
+        this.lock.lock();
+        try {
+            if (status.isOk()) {
+                this.lastSnapshotIndex = this.loadingSnapshotMeta.getLastIncludedIndex();
+                this.lastSnapshotTerm = this.loadingSnapshotMeta.getLastIncludedTerm();
+                doUnlock = false;
+                this.lock.unlock();
+                this.logManager.setSnapshot(this.loadingSnapshotMeta);
+                doUnlock = true;
+                this.lock.lock();
+            }
+
+            this.loadingSnapshot = false;
+//            this.downloadingSnapshot.set(null);
+        } finally {
+            if (doUnlock) {
+                this.lock.unlock();
+            }
+        }
     }
 
     @Override

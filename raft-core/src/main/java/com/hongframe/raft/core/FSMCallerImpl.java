@@ -5,6 +5,7 @@ import com.hongframe.raft.StateMachine;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.CallbackQueue;
+import com.hongframe.raft.callback.LoadSnapshotCallback;
 import com.hongframe.raft.callback.SaveSnapshotCallback;
 import com.hongframe.raft.entity.EntryType;
 import com.hongframe.raft.entity.LogEntry;
@@ -12,6 +13,7 @@ import com.hongframe.raft.entity.LogId;
 import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.FSMCallerOptions;
 import com.hongframe.raft.storage.LogManager;
+import com.hongframe.raft.storage.snapshot.SnapshotReader;
 import com.hongframe.raft.storage.snapshot.SnapshotWriter;
 import com.hongframe.raft.util.DisruptorBuilder;
 import com.hongframe.raft.util.LogExceptionHandler;
@@ -150,6 +152,10 @@ public class FSMCallerImpl implements FSMCaller {
                     this.currTask = TaskType.SNAPSHOT_SAVE;
                     doSnapshotSave((SaveSnapshotCallback) task.callback);
                     break;
+                case SNAPSHOT_LOAD:
+                    this.currTask = TaskType.SNAPSHOT_LOAD;
+                    doSnapshotLoad((LoadSnapshotCallback) task.callback);
+                    break;
                 default:
                     break;
             }
@@ -224,6 +230,14 @@ public class FSMCallerImpl implements FSMCaller {
         });
     }
 
+    @Override
+    public boolean onSnapshotLoad(LoadSnapshotCallback callback) {
+        return publishEvent((task, seq) -> {
+            task.type = TaskType.SNAPSHOT_LOAD;
+            task.callback = callback;
+        });
+    }
+
     private void doSnapshotSave(final SaveSnapshotCallback callback) {
         SnapshotMeta meta = new SnapshotMeta();
         meta.setLastIncludedIndex(this.lastAppliedIndex.get());
@@ -235,6 +249,35 @@ public class FSMCallerImpl implements FSMCaller {
             return;
         }
         this.stateMachine.onSnapshotSave(writer, callback);
+    }
+
+    private void doSnapshotLoad(final LoadSnapshotCallback callback) {
+        //TODO doSnapshotLoad
+        final SnapshotReader reader = callback.start();
+        if (reader == null) {
+            callback.run(new Status(10001, "open SnapshotReader failed"));
+            return;
+        }
+        SnapshotMeta meta = reader.load();
+        if (meta == null) {
+            callback.run(new Status(10001, "SnapshotReader load meta failed"));
+            return;
+        }
+        final LogId lastAppliedId = new LogId(this.lastAppliedIndex.get(), this.lastAppliedTerm);
+        final LogId snapshotId = new LogId(meta.getLastIncludedIndex(), meta.getLastIncludedTerm());
+        if (lastAppliedId.compareTo(snapshotId) > 0) {
+            callback.run(new Status(10001, "lastAppliedId > snapshotId"));
+            return;
+        }
+        if (!this.stateMachine.onSnapshotLoad(reader)) {
+            callback.run(new Status(-1, "StateMachine onSnapshotLoad failed"));
+            return;
+        }
+
+        this.lastAppliedIndex.set(meta.getLastIncludedIndex());
+        this.lastAppliedTerm = meta.getLastIncludedTerm();
+        callback.run(Status.OK());
+
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.hongframe.raft;
 
 import com.hongframe.raft.callback.Callback;
+import com.hongframe.raft.storage.snapshot.SnapshotReader;
 import com.hongframe.raft.storage.snapshot.SnapshotWriter;
 
 /**
@@ -18,5 +19,7 @@ public interface StateMachine {
     void onLeaderStop(Status status);
 
     void onSnapshotSave(final SnapshotWriter writer, final Callback callback);
+
+    boolean onSnapshotLoad(final SnapshotReader reader);
 
 }
