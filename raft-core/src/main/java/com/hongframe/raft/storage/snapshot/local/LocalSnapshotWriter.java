@@ -81,6 +81,10 @@ public class LocalSnapshotWriter extends SnapshotWriter {
         return this.metaTable.hasMeta() ? this.metaTable.getMeta().getLastIncludedIndex() : 0;
     }
 
+    @Override
+    public com.hongframe.raft.entity.LocalFileMeta getFileMeta(String fileName) {
+        return null;
+    }
 
     @Override
     public void shutdown() {

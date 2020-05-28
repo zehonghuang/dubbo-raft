@@ -1,5 +1,7 @@
 package com.hongframe.raft.storage.snapshot.local;
 
+import com.hongframe.raft.entity.LocalFileMeta;
+import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.storage.snapshot.Snapshot;
 import com.hongframe.raft.storage.snapshot.SnapshotReader;
@@ -242,6 +244,11 @@ public class LocalSnapshotStorage extends SnapshotStorage {
             }
         }
 
+    }
+
+    @Override
+    public LocalFileMeta getFileMeta(String fileName) {
+        return null;
     }
 
     public long getLastSnapshotIndex() {

@@ -1,5 +1,7 @@
 package com.hongframe.raft.storage.snapshot.local;
 
+import com.hongframe.raft.entity.LocalFileMeta;
+import com.hongframe.raft.entity.LocalFileMetaOutter;
 import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.storage.snapshot.SnapshotReader;
@@ -63,6 +65,17 @@ public class LocalSnapshotReader extends SnapshotReader {
     @Override
     public String generateURIForCopy() {
         return null;
+    }
+
+    @Override
+    public LocalFileMeta getFileMeta(String fileName) {
+        LocalFileMetaOutter.LocalFileMeta pbmeta = this.metaTable.getFileMeta(fileName);
+        if (pbmeta == null) {
+            return null;
+        }
+        LocalFileMeta meta = new LocalFileMeta();
+//        TODO getFileMeta meta.setSource(pbmeta.getSource().getNumber());
+        return meta;
     }
 
     private long getSnapshotIndex() {

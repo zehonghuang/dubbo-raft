@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -95,6 +96,22 @@ public class CounterStateMachine implements StateMachine {
 
     @Override
     public boolean onSnapshotLoad(SnapshotReader reader) {
-        return false;
+        if (isLeader()) {
+            LOG.warn("Leader is not supposed to load snapshot");
+            return false;
+        }
+        if (reader.getFileMeta("data") == null) {
+            LOG.error("Fail to find data file in {}", reader.getPath());
+            return false;
+        }
+
+        final CounterSnapshotFile snapshot = new CounterSnapshotFile(reader.getPath() + File.separator + "data");
+        try {
+            this.value.set(snapshot.load());
+            return true;
+        } catch (final IOException e) {
+            LOG.error("Fail to load snapshot from {}", snapshot.getPath());
+            return false;
+        }
     }
 }

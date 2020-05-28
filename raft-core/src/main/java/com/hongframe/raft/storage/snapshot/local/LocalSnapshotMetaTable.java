@@ -101,6 +101,10 @@ public class LocalSnapshotMetaTable {
         return peers.toString();
     }
 
+    public LocalFileMeta getFileMeta(String fileName) {
+        return this.fileMap.get(fileName);
+    }
+
     public void setMeta(SnapshotMeta meta) {
         this.meta = meta;
     }

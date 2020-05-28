@@ -1,6 +1,8 @@
 package com.hongframe.raft.storage.snapshot;
 
 import com.hongframe.raft.Status;
+import com.hongframe.raft.entity.LocalFileMeta;
+import com.hongframe.raft.entity.SnapshotMeta;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -15,4 +17,6 @@ public abstract class Snapshot extends Status {
     protected static final String REMOTE_SNAPSHOT_URI_SCHEME = "remote://";
 
     public abstract String getPath();
+
+    public abstract LocalFileMeta getFileMeta(final String fileName);
 }
