@@ -166,7 +166,27 @@ public class LocalSnapshotStorage extends SnapshotStorage {
 
     @Override
     public SnapshotReader open() {
-        return null;
+        long lsIndex = 0;
+        this.lock.lock();
+        try {
+            if (this.lastSnapshotIndex != 0) {
+                lsIndex = this.lastSnapshotIndex;
+                ref(lsIndex);
+            }
+        } finally {
+            this.lock.unlock();
+        }
+        if (lsIndex == 0) {
+            LOG.warn("No data for snapshot reader {}.", this.path);
+            return null;
+        }
+        final String snapshotPath = getSnapshotPath(lsIndex);
+        SnapshotReader reader = new LocalSnapshotReader(snapshotPath, this, this.raftOptions);
+        if (!reader.init(null)) {
+            unref(lsIndex);
+            return null;
+        }
+        return reader;
     }
 
     @Override
@@ -216,8 +236,9 @@ public class LocalSnapshotStorage extends SnapshotStorage {
             }
             unref(oldIndex);//释放旧快照文件
         } finally {
-            if (ret != 0) {
+            if (ret != 0 && !keepDataOnError) {
                 //TODO error
+                destroySnapshot(writer.getPath());
             }
         }
 
