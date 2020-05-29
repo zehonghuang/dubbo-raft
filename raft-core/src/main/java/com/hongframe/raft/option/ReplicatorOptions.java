@@ -6,6 +6,7 @@ import com.hongframe.raft.core.Scheduler;
 import com.hongframe.raft.entity.PeerId;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
+import com.hongframe.raft.storage.snapshot.SnapshotStorage;
 import com.hongframe.raft.util.Copiable;
 
 public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
@@ -19,6 +20,7 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     private NodeImpl node;
     private long term;
     private BallotBox ballotBox;
+    private SnapshotStorage snapshotStorage;
     private RpcClient rpcClient;
     private Scheduler timerManager;
     private RaftOptions raftOptions;
@@ -27,7 +29,7 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     }
 
     public ReplicatorOptions(int dynamicHeartBeatTimeoutMs, int electionTimeoutMs, String groupId, PeerId serverId,
-                             PeerId peerId, LogManager logManager, NodeImpl node, long term, RpcClient rpcClient,
+                             PeerId peerId, LogManager logManager, NodeImpl node, long term, SnapshotStorage snapshotStorage, RpcClient rpcClient,
                              Scheduler timerManager, BallotBox ballotBox, RaftOptions raftOptions) {
         this.dynamicHeartBeatTimeoutMs = dynamicHeartBeatTimeoutMs;
         this.electionTimeoutMs = electionTimeoutMs;
@@ -37,6 +39,7 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
         this.logManager = logManager;
         this.node = node;
         this.term = term;
+        this.snapshotStorage = snapshotStorage;
         this.rpcClient = rpcClient;
         this.timerManager = timerManager;
         this.ballotBox = ballotBox;
@@ -46,7 +49,15 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     @Override
     public ReplicatorOptions copy() {
         return new ReplicatorOptions(this.dynamicHeartBeatTimeoutMs, this.electionTimeoutMs, this.groupId, this.serverId,
-                this.peerId, this.logManager, this.node, this.term, this.rpcClient, this.timerManager, this.ballotBox, this.raftOptions);
+                this.peerId, this.logManager, this.node, this.term, this.snapshotStorage, this.rpcClient, this.timerManager, this.ballotBox, this.raftOptions);
+    }
+
+    public SnapshotStorage getSnapshotStorage() {
+        return snapshotStorage;
+    }
+
+    public void setSnapshotStorage(SnapshotStorage snapshotStorage) {
+        this.snapshotStorage = snapshotStorage;
     }
 
     public RaftOptions getRaftOptions() {

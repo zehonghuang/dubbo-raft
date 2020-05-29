@@ -4,10 +4,12 @@ import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.ResponseCallback;
 import com.hongframe.raft.entity.LogEntry;
 import com.hongframe.raft.entity.Message;
+import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.ReplicatorOptions;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcRequests.*;
+import com.hongframe.raft.storage.snapshot.SnapshotReader;
 import com.hongframe.raft.util.ObjectLock;
 import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
@@ -41,6 +43,7 @@ public class Replicator {
     private ArrayDeque<FlyingAppendEntries> appendEntriesInFly = new ArrayDeque<>();
     private CompletableFuture<?> heartbeatInFly;
     private ScheduledFuture<?> heartbeatTimer;
+    private volatile SnapshotReader reader;
     private AtomicInteger reqSeq = new AtomicInteger(0);
     private AtomicInteger requiredNextSeq = new AtomicInteger(0);
     private final PriorityQueue<RpcResponse> pendingResponses = new PriorityQueue<>(50);
@@ -54,17 +57,25 @@ public class Replicator {
 
     public enum State {
         Probe,
+        Snapshot,
         Replicate,
         Destroyed;
     }
 
+    enum RequestType {
+        Snapshot, // install snapshot
+        AppendEntries // replicate logs
+    }
+
     private class FlyingAppendEntries {
+        private final RequestType type;
         final long startLogIndex;
         final int entriesSize;
         final int seq;
         final CompletableFuture<?> future;
 
-        public FlyingAppendEntries(long startLogIndex, int entriesSize, int seq, CompletableFuture<?> future) {
+        public FlyingAppendEntries(RequestType type, long startLogIndex, int entriesSize, int seq, CompletableFuture<?> future) {
+            this.type = type;
             this.startLogIndex = startLogIndex;
             this.entriesSize = entriesSize;
             this.seq = seq;
@@ -178,6 +189,60 @@ public class Replicator {
         Utils.runInThread(() -> sendHeartbeat(lock, null));
     }
 
+    private boolean isInstallSnapshot(long prevTerm, long prevIndex) {
+        if (prevTerm == 0 && prevIndex != 0) {
+            installSnapshot();
+            return true;
+        }
+        return false;
+    }
+
+    private void installSnapshot() {
+        if (this.state == State.Snapshot) {
+            LOG.warn("Replicator {} is installing snapshot, ignore the new request.", this.options.getPeerId());
+            this.self.unlock();
+            return;
+        }
+        boolean doUnlock = true;
+        try {
+            this.reader = this.options.getSnapshotStorage().open();
+            if (this.reader == null) {
+                this.self.unlock();
+                doUnlock = false;
+                return;
+            }
+            final String uri = this.reader.generateURIForCopy();
+            if (uri == null) {
+                return;
+            }
+            SnapshotMeta meta = this.reader.load();
+            if (meta == null) {
+                return;
+            }
+            InstallSnapshotRequest request = new InstallSnapshotRequest();
+            request.setTerm(this.options.getTerm());
+            request.setGroupId(this.options.getGroupId());
+            request.setServerId(this.options.getServerId().toString());
+            request.setPeerId(this.options.getPeerId().toString());
+            request.setMeta(meta);
+            request.setUri(uri);
+            this.state = State.Snapshot;
+            final long monotonicSendTimeMs = Utils.monotonicMs();
+            final int seq = getAndIncrementReqSeq();
+            CompletableFuture<?> future = this.rpcClient.installSnapshot(this.options.getPeerId(), request, new ResponseCallbackAdapter() {
+                @Override
+                public void run(Status status) {
+                    //TODO installSnapshot()
+                }
+            });
+            addFlying(RequestType.Snapshot, this.nextIndex, 0, seq, future);
+        } finally {
+            if (doUnlock) {
+                this.self.unlock();
+            }
+        }
+    }
+
     public static void sendHeartbeat(final ObjectLock<Replicator> lock, ResponseCallback heartBeatCallback) {
         final Replicator r = lock.lock();
         if (r == null) {
@@ -192,6 +257,9 @@ public class Replicator {
         try {
             AppendEntriesRequest request = new AppendEntriesRequest();
             long prevLogTerm = this.options.getLogManager().getTerm(this.nextIndex - 1);
+            if (!isHeartbeat && isInstallSnapshot(prevLogTerm, this.nextIndex - 1)) {
+                return;
+            }
             request.setTerm(this.options.getTerm());
             request.setGroupId(this.options.getGroupId());
             request.setServerId(this.options.getServerId().toString());
@@ -237,7 +305,7 @@ public class Replicator {
                     }
                 });
                 if (future != null) {
-                    addFlying(this.nextIndex, 0, reqSeq, future);
+                    addFlying(RequestType.AppendEntries, this.nextIndex, 0, reqSeq, future);
                 }
 
             }
@@ -438,8 +506,8 @@ public class Replicator {
         this.requiredNextSeq.set(rs);
     }
 
-    private void addFlying(long startLogIndex, int entriesSize, int seq, CompletableFuture future) {
-        this.fiying = new FlyingAppendEntries(startLogIndex, entriesSize, seq, future);
+    private void addFlying(RequestType type, long startLogIndex, int entriesSize, int seq, CompletableFuture future) {
+        this.fiying = new FlyingAppendEntries(type, startLogIndex, entriesSize, seq, future);
         this.appendEntriesInFly.add(fiying);
     }
 
@@ -531,7 +599,7 @@ public class Replicator {
                 onAppendEntriesReturned(Replicator.this.self, status, request, (AppendEntriesResponse) getResponse(), seq, monotonicSendTimeMs);
             }
         });
-        addFlying(nextSendingIndex, entries.size(), seq, future);
+        addFlying(RequestType.AppendEntries, nextSendingIndex, entries.size(), seq, future);
         return true;
     }
 

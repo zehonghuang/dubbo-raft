@@ -235,6 +235,9 @@ public class NodeImpl implements Node {
         rgo.setTimerManager(this.timerManger);
         rgo.setBallotBox(this.ballotBox);
         rgo.setRaftOptions(this.raftOptions);
+        if(this.snapshotExecutor != null) {
+            rgo.setSnapshotStorage(this.snapshotExecutor.getSnapshotStorage());
+        }
         this.replicatorGroup.init(this.nodeId.copy(), rgo);
 
         this.readOnlyService = new ReadOnlyServiceImpl();
@@ -567,7 +570,6 @@ public class NodeImpl implements Node {
     }
 
     public Message handleReadIndexRequest(ReadIndexRequest request, ResponseCallback callback) {
-        //TODO handleReadIndexRequest
         Message message = null;
         this.readLock.lock();
         try {
@@ -588,6 +590,7 @@ public class NodeImpl implements Node {
     }
 
     public Message handleInstallSnapshotRequest(InstallSnapshotRequest request, RequestCallback callback) {
+        //TODO handleInstallSnapshotRequest
         return null;
     }
 
@@ -624,7 +627,6 @@ public class NodeImpl implements Node {
         }
 
         if (readOnly == ReadOnlyOption.ReadOnlySafe) {
-            //TODO ReadOnlySafe
             final List<PeerId> peers = this.conf.getConf().getPeers();
             ReadIndexHeartbeatResponseCallback heartbeatResponseCallback =
                     new ReadIndexHeartbeatResponseCallback((ResponseCallbackAdapter) callback, response, quorum, peers.size());

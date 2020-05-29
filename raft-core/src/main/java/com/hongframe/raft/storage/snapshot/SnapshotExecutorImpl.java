@@ -166,6 +166,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
     }
 
+    @Override
+    public SnapshotStorage getSnapshotStorage() {
+        return this.snapshotStorage;
+    }
+
     private int onSnapshotSaveDone(Status status, SnapshotWriter writer, SnapshotMeta meta) {
         int rest;
         this.lock.lock();

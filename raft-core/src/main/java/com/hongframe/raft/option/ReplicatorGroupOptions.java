@@ -5,6 +5,7 @@ import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.core.Scheduler;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.storage.LogManager;
+import com.hongframe.raft.storage.snapshot.SnapshotStorage;
 
 public class ReplicatorGroupOptions {
 
@@ -12,10 +13,19 @@ public class ReplicatorGroupOptions {
     private int electionTimeoutMs;
     private LogManager logManager;
     private NodeImpl node;
+    private SnapshotStorage snapshotStorage;
     private RpcClient rpcClient;
     private Scheduler timerManager;
     private BallotBox ballotBox;
     private RaftOptions raftOptions;
+
+    public SnapshotStorage getSnapshotStorage() {
+        return snapshotStorage;
+    }
+
+    public void setSnapshotStorage(SnapshotStorage snapshotStorage) {
+        this.snapshotStorage = snapshotStorage;
+    }
 
     public BallotBox getBallotBox() {
         return ballotBox;

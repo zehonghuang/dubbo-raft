@@ -41,6 +41,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         this.replicatorOptions.setDynamicHeartBeatTimeoutMs(this.options.getHeartbeatTimeoutMs());
         this.replicatorOptions.setBallotBox(this.options.getBallotBox());
         this.replicatorOptions.setRaftOptions(this.options.getRaftOptions());
+        this.replicatorOptions.setSnapshotStorage(this.options.getSnapshotStorage());
         return true;
     }
 
