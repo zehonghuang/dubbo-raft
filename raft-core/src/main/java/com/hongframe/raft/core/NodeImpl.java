@@ -587,6 +587,10 @@ public class NodeImpl implements Node {
         return message;
     }
 
+    public Message handleInstallSnapshotRequest(InstallSnapshotRequest request, RequestCallback callback) {
+        return null;
+    }
+
     private Message readFollower(final ReadIndexRequest request, ResponseCallback callback) {
         if (this.leaderId == null || this.leaderId.isEmpty()) {
             return new ErrorResponse(10001, "No leader at term " + this.currTerm);

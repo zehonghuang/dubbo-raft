@@ -37,6 +37,7 @@ public class RpcRemoteOptions {
         addRaftRequest0(AppendEntriesRpc.class, AppendEntriesRpcImpl.class, null);
         addRaftRequest0(MembershipChangeRpc.class, MembershipChangeRpcImpl.class, null);
         addRaftRequest0(ReadIndexRpc.class, ReadIndexRpcImpl.class, null);
+        addRaftRequest0(InstallSnapshotRpc.class, InstallSnapshotRpcImpl.class, null);
     }
 
     private void addRaftRequest0(Class interfacez, Class implz, Class mock) {

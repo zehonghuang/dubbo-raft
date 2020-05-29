@@ -1,10 +1,7 @@
 package com.hongframe.raft.rpc;
 
 import com.hongframe.raft.entity.*;
-import com.hongframe.raft.rpc.core.AppendEntriesRpc;
-import com.hongframe.raft.rpc.core.MembershipChangeRpc;
-import com.hongframe.raft.rpc.core.ReadIndexRpc;
-import com.hongframe.raft.rpc.core.RequestVoteRpc;
+import com.hongframe.raft.rpc.core.*;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -736,6 +733,121 @@ public class RpcRequests {
         public String toString() {
             return "ReadIndexResponse{" +
                     "index=" + index +
+                    ", success=" + success +
+                    '}';
+        }
+    }
+
+    public final static class InstallSnapshotRequest implements Message {
+        private String groupId;
+        private String serverId;
+        private String peerId;
+        private long term;
+        private SnapshotMeta meta;
+        private String uri;
+
+        @Override
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        public String getServerId() {
+            return serverId;
+        }
+
+        public void setServerId(String serverId) {
+            this.serverId = serverId;
+        }
+
+        @Override
+        public String getPeerId() {
+            return peerId;
+        }
+
+        public void setPeerId(String peerId) {
+            this.peerId = peerId;
+        }
+
+        public long getTerm() {
+            return term;
+        }
+
+        public void setTerm(long term) {
+            this.term = term;
+        }
+
+        public SnapshotMeta getMeta() {
+            return meta;
+        }
+
+        public void setMeta(SnapshotMeta meta) {
+            this.meta = meta;
+        }
+
+        public String getUri() {
+            return uri;
+        }
+
+        public void setUri(String uri) {
+            this.uri = uri;
+        }
+
+        @Override
+        public String toString() {
+            return "InstallSnapshotRequest{" +
+                    "groupId='" + groupId + '\'' +
+                    ", serverId='" + serverId + '\'' +
+                    ", peerId='" + peerId + '\'' +
+                    ", term=" + term +
+                    ", meta=" + meta +
+                    ", uri='" + uri + '\'' +
+                    '}';
+        }
+
+        @Override
+        public String seviceName() {
+            return InstallSnapshotRpc.class.getSimpleName();
+        }
+
+        @Override
+        public String method() {
+            return "intallSnapshot";
+        }
+
+        @Override
+        public String getName() {
+            return getClass().getName();
+        }
+    }
+
+    public final static class InstallSnapshotResponse implements Message {
+        private long term;
+        private boolean success;
+
+        public long getTerm() {
+            return term;
+        }
+
+        public void setTerm(long term) {
+            this.term = term;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        @Override
+        public String toString() {
+            return "InstallSnapshotResponse{" +
+                    "term=" + term +
                     ", success=" + success +
                     '}';
         }
