@@ -4,10 +4,12 @@ import com.hongframe.raft.FSMCaller;
 import com.hongframe.raft.Status;
 import com.hongframe.raft.callback.Callback;
 import com.hongframe.raft.callback.LoadSnapshotCallback;
+import com.hongframe.raft.callback.RequestCallback;
 import com.hongframe.raft.callback.SaveSnapshotCallback;
 import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.SnapshotExecutorOptions;
+import com.hongframe.raft.rpc.RpcRequests;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.SnapshotExecutor;
 import com.hongframe.raft.storage.snapshot.local.LocalSnapshotStorage;
@@ -121,6 +123,54 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             onSnapshotLoadDone(status);
             this.eventLatch.countDown();
         }
+    }
+
+    private class DownloadingSnapshot {
+        RpcRequests.InstallSnapshotRequest request;
+        RpcRequests.InstallSnapshotResponse response;
+        RequestCallback callback;
+
+        public DownloadingSnapshot(final RpcRequests.InstallSnapshotRequest request,
+                                   final RpcRequests.InstallSnapshotResponse response, final RequestCallback callback) {
+            super();
+            this.request = request;
+            this.response = response;
+            this.callback = callback;
+        }
+    }
+
+    @Override
+    public void installSnapshot(RpcRequests.InstallSnapshotRequest request, RequestCallback callback) {
+        final SnapshotMeta meta = request.getMeta();
+        final DownloadingSnapshot ds = new DownloadingSnapshot(request, new RpcRequests.InstallSnapshotResponse(), callback);
+
+        if (!registerDownloadingSnapshot(ds)) {
+            LOG.warn("Fail to register downloading snapshot.");
+            return;
+        }
+    }
+
+    boolean registerDownloadingSnapshot(final DownloadingSnapshot ds) {
+        this.lock.lock();
+        try {
+            if (this.savingSnapshot) {
+                LOG.warn("Register DownloadingSnapshot failed: is saving snapshot.");
+                ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "Node is saving snapshot."));
+                return false;
+            }
+            ds.response.setTerm(this.term);
+            if (ds.request.getTerm() != this.term) {
+                LOG.warn("Register DownloadingSnapshot failed: term mismatch, expect {} but {}.", this.term,
+                        ds.request.getTerm());
+                ds.response.setSuccess(false);
+                ds.callback.sendResponse(ds.response);
+                return false;
+            }
+            //TODO registerDownloadingSnapshot
+        } finally {
+            this.lock.unlock();
+        }
+        return false;
     }
 
     @Override
@@ -242,6 +292,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 this.lock.unlock();
             }
         }
+    }
+
+    @Override
+    public void interruptDownloadingSnapshots(long newTerm) {
+        //TODO interruptDownloadingSnapshots
     }
 
     @Override

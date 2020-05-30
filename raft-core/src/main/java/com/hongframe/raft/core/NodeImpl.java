@@ -235,7 +235,7 @@ public class NodeImpl implements Node {
         rgo.setTimerManager(this.timerManger);
         rgo.setBallotBox(this.ballotBox);
         rgo.setRaftOptions(this.raftOptions);
-        if(this.snapshotExecutor != null) {
+        if (this.snapshotExecutor != null) {
             rgo.setSnapshotStorage(this.snapshotExecutor.getSnapshotStorage());
         }
         this.replicatorGroup.init(this.nodeId.copy(), rgo);
@@ -591,6 +591,35 @@ public class NodeImpl implements Node {
 
     public Message handleInstallSnapshotRequest(InstallSnapshotRequest request, RequestCallback callback) {
         //TODO handleInstallSnapshotRequest
+        if (this.snapshotExecutor == null) {
+            return new ErrorResponse(10001, "Not supported snapshot");
+        }
+        final PeerId serverId = new PeerId();
+        if (!serverId.parse(request.getServerId())) {
+            LOG.warn("Node {} ignore InstallSnapshotRequest from {} bad server id.", getNodeId(), request.getServerId());
+            return new ErrorResponse(10001, "Parse serverId failed: " + request.getServerId());
+        }
+        this.writeLock.lock();
+        try {
+            if (request.getTerm() < this.currTerm) {
+                InstallSnapshotResponse response = new InstallSnapshotResponse();
+                response.setSuccess(false);
+                response.setTerm(this.currTerm);
+                return response;
+            }
+
+            if (!serverId.equals(this.leaderId)) {
+                stepDown(request.getTerm() + 1, new Status(10001,
+                        "More than one leader in the same term."));
+                InstallSnapshotResponse response = new InstallSnapshotResponse();
+                response.setSuccess(false);
+                response.setTerm(request.getTerm() + 1);
+                return response;
+            }
+        } finally {
+            this.writeLock.unlock();
+        }
+        this.snapshotExecutor.doSnapshot(callback);
         return null;
     }
 
@@ -929,6 +958,12 @@ public class NodeImpl implements Node {
         if (term > this.currTerm) {
             this.currTerm = term;
             this.voteId = PeerId.emptyPeer();
+        }
+
+        this.state = State.STATE_FOLLOWER;
+        updateLastLeaderTimestamp(Utils.monotonicMs());
+        if (this.snapshotExecutor != null) {
+            this.snapshotExecutor.interruptDownloadingSnapshots(term);
         }
 
         this.replicatorGroup.stopAll();
