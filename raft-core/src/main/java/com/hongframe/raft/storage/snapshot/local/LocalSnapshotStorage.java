@@ -3,10 +3,8 @@ package com.hongframe.raft.storage.snapshot.local;
 import com.hongframe.raft.entity.LocalFileMeta;
 import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.RaftOptions;
-import com.hongframe.raft.storage.snapshot.Snapshot;
-import com.hongframe.raft.storage.snapshot.SnapshotReader;
-import com.hongframe.raft.storage.snapshot.SnapshotStorage;
-import com.hongframe.raft.storage.snapshot.SnapshotWriter;
+import com.hongframe.raft.option.SnapshotCopierOptions;
+import com.hongframe.raft.storage.snapshot.*;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -189,6 +187,11 @@ public class LocalSnapshotStorage extends SnapshotStorage {
             return null;
         }
         return reader;
+    }
+
+    @Override
+    public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
+        return null;//TODO startToCopyFrom
     }
 
     @Override

@@ -1126,6 +1126,18 @@ public class NodeImpl implements Node {
         return nodeOptions;
     }
 
+    public RpcClient getRpcClient() {
+        return rpcClient;
+    }
+
+    public Scheduler getTimerManger() {
+        return timerManger;
+    }
+
+    public RaftOptions getRaftOptions() {
+        return raftOptions;
+    }
+
     @Override
     public void shutdown() {
 

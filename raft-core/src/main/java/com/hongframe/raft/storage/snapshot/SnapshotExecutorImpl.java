@@ -8,6 +8,7 @@ import com.hongframe.raft.callback.RequestCallback;
 import com.hongframe.raft.callback.SaveSnapshotCallback;
 import com.hongframe.raft.core.NodeImpl;
 import com.hongframe.raft.entity.SnapshotMeta;
+import com.hongframe.raft.option.SnapshotCopierOptions;
 import com.hongframe.raft.option.SnapshotExecutorOptions;
 import com.hongframe.raft.rpc.RpcRequests;
 import com.hongframe.raft.storage.LogManager;
@@ -19,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -37,10 +39,12 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     private volatile boolean savingSnapshot;
     private volatile boolean loadingSnapshot;
     private SnapshotStorage snapshotStorage;
+    private SnapshotCopier curCopier;
     private FSMCaller fsmCaller;
     private NodeImpl node;
     private LogManager logManager;
     private SnapshotMeta loadingSnapshotMeta;
+    private final AtomicReference<DownloadingSnapshot> downloadingSnapshot = new AtomicReference<>(null);
 
     @Override
     public NodeImpl getNode() {
@@ -166,11 +170,39 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 ds.callback.sendResponse(ds.response);
                 return false;
             }
-            //TODO registerDownloadingSnapshot
+            if (ds.request.getMeta().getLastIncludedIndex() <= this.lastSnapshotIndex) {
+                LOG.warn(
+                        "Register DownloadingSnapshot failed: snapshot is not newer, request lastIncludedIndex={}, lastSnapshotIndex={}.",
+                        ds.request.getMeta().getLastIncludedIndex(), this.lastSnapshotIndex);
+                ds.response.setSuccess(true);
+                ds.callback.sendResponse(ds.response);
+                return false;
+            }
+            final DownloadingSnapshot m = this.downloadingSnapshot.get();
+            if (m == null) {
+                this.downloadingSnapshot.set(ds);
+                this.curCopier = this.snapshotStorage.startToCopyFrom(ds.request.getUri(), newCopierOpts());
+                if (this.curCopier == null) {
+                    this.downloadingSnapshot.set(null);
+                    ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "Fail to copy from: " + ds.request.getUri()));
+                    return false;
+                }
+                return true;
+            }
+            //TODO registerDownloadingSnapshot > previous snapshot
         } finally {
             this.lock.unlock();
         }
         return false;
+    }
+
+    private SnapshotCopierOptions newCopierOpts() {
+        final SnapshotCopierOptions copierOpts = new SnapshotCopierOptions();
+        copierOpts.setNodeOptions(this.node.getNodeOptions());
+        copierOpts.setRpcClient(this.node.getRpcClient());
+        copierOpts.setTimerManager(this.node.getTimerManger());
+        copierOpts.setRaftOptions(this.node.getRaftOptions());
+        return copierOpts;
     }
 
     @Override
