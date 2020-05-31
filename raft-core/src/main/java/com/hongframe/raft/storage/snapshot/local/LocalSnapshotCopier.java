@@ -10,6 +10,11 @@ import java.io.IOException;
  * create time: 2020-05-30 17:25
  */
 public class LocalSnapshotCopier extends SnapshotCopier {
+
+    private LocalSnapshotStorage storage;
+    private boolean filterBeforeCopyRemote;
+    private LocalSnapshot remoteSnapshot;
+
     @Override
     public void cancel() {
 
@@ -33,5 +38,13 @@ public class LocalSnapshotCopier extends SnapshotCopier {
     @Override
     public void close() throws IOException {
 
+    }
+
+    public LocalSnapshotStorage getStorage() {
+        return storage;
+    }
+
+    public void setStorage(LocalSnapshotStorage storage) {
+        this.storage = storage;
     }
 }

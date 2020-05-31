@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -44,11 +45,11 @@ public class LocalSnapshotMetaTable {
         if (this.meta != null) {
             LocalFileMetaOutter.SnapshotMeta.Builder snMeta = LocalFileMetaOutter.SnapshotMeta.newBuilder();
             String[] peers = split(this.meta.getPeers());
-            for(int i = 0; i < peers.length; i++) {
+            for (int i = 0; i < peers.length; i++) {
                 snMeta.setPeers(i, peers[i]);
             }
             String[] oldPeers = split(this.meta.getOldPeers());
-            for(int i = 0; i < oldPeers.length; i++) {
+            for (int i = 0; i < oldPeers.length; i++) {
                 snMeta.setOldPeers(i, oldPeers[i]);
             }
             snMeta.setLastIncludedIndex(this.meta.getLastIncludedIndex());
@@ -101,8 +102,20 @@ public class LocalSnapshotMetaTable {
         return peers.toString();
     }
 
-    public LocalFileMeta getFileMeta(String fileName) {
-        return this.fileMap.get(fileName);
+    public Set<String> listFiles() {
+        return this.fileMap.keySet();
+    }
+
+    public com.hongframe.raft.entity.LocalFileMeta getFileMeta(String fileName) {
+        LocalFileMeta meta = this.fileMap.get(fileName);
+        if (meta != null) {
+            com.hongframe.raft.entity.LocalFileMeta lmeta = new com.hongframe.raft.entity.LocalFileMeta();
+            lmeta.setSource(meta.getSource().getNumber());
+            lmeta.setChecksum(meta.getChecksum());
+            lmeta.setUserMeta(meta.getUserMeta().toString());
+            return lmeta;
+        }
+        return null;
     }
 
     public void setMeta(SnapshotMeta meta) {

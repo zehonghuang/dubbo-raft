@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -191,6 +192,7 @@ public class LocalSnapshotStorage extends SnapshotStorage {
 
     @Override
     public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
+        final LocalSnapshotCopier copier = new LocalSnapshotCopier();
         return null;//TODO startToCopyFrom
     }
 
@@ -251,6 +253,11 @@ public class LocalSnapshotStorage extends SnapshotStorage {
 
     @Override
     public LocalFileMeta getFileMeta(String fileName) {
+        return null;
+    }
+
+    @Override
+    public Set<String> listFiles() {
         return null;
     }
 
