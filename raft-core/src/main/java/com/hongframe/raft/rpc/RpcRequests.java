@@ -932,7 +932,7 @@ public class RpcRequests {
         private byte[] data;
         private long readSize;
 
-        public boolean isEof() {
+        public boolean getEof() {
             return eof;
         }
 

@@ -48,6 +48,10 @@ public class RpcClient extends AbstractRpcClient {
         return invokeAsync(findReferenceConfig(peerId, request), request, callback);
     }
 
+    public CompletableFuture<?> getFile(PeerId peerId, GetFileRequest request, Invokeable callback) {
+        return invokeAsync(findReferenceConfig(peerId, request), request, callback);
+    }
+
     protected Map<String, ReferenceConfig> addReferenceConfig(PeerId peerId) {
         Map<String, ReferenceConfig> referenceConfigMap = new HashMap<>();
         List<Class> classes = this.getRpcRemoteOptions().getServicesInterface();
