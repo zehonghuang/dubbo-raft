@@ -9,13 +9,17 @@ import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.rpc.RpcClient;
 import com.hongframe.raft.rpc.RpcRequests;
 import com.hongframe.raft.util.ByteBufferCollector;
+import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -35,6 +39,7 @@ public class CopySession implements Session {
     private RpcRequests.GetFileRequest request;
     private final GetFileResponseCallback callback = new GetFileResponseCallback();
     private PeerId peerId;
+    private final CountDownLatch await = new CountDownLatch(1);
     private boolean finished;
     private ByteBufferCollector destBuf;
     private CopyOptions copyOptions = new CopyOptions();
@@ -83,7 +88,10 @@ public class CopySession implements Session {
             if (this.rpcCall != null) {
                 this.rpcCall.cancel(true);
             }
-            //TODO finished
+            if (this.status.isOk()) {
+                //TODO status setError
+            }
+            onFinished();
         } finally {
             this.lock.unlock();
         }
@@ -91,7 +99,7 @@ public class CopySession implements Session {
 
     @Override
     public void join() throws InterruptedException {
-
+        this.await.await();
     }
 
     @Override
@@ -125,17 +133,20 @@ public class CopySession implements Session {
             }
             if (!status.isOk()) {
                 //TODO onRpcReturned not ok
+                this.timer = this.timerManager.schedule(() -> Utils.runInThread(this::sendNextRpc),
+                        this.copyOptions.getRetryIntervalMs(), TimeUnit.MILLISECONDS);
+                return;
             }
             if (this.outputStream != null) {
 
             } else {
-
+                this.destBuf.put(ByteBuffer.wrap(response.getData()));
             }
             if (!response.getEof()) {
                 this.request.setCount(response.getReadSize());
             }
             if (response.getEof()) {
-                //TODO finished
+                onFinished();
                 return;
             }
         } finally {
@@ -144,12 +155,46 @@ public class CopySession implements Session {
         sendNextRpc();
     }
 
+    private void onFinished() {
+        if (!this.finished) {
+            if (!this.status.isOk()) {
+                LOG.error("Fail to copy data, readerId={} fileName={} offset={} status={}",
+                        this.request.getReaderId(), this.request.getFilename(),
+                        this.request.getOffset(), this.status);
+            }
+            if (this.outputStream != null) {
+                try {
+                    this.outputStream.close();
+                } catch (IOException e) {
+                    LOG.error("", e);
+                }
+                this.outputStream = null;
+            }
+            if (this.destBuf != null) {
+                final ByteBuffer buf = this.destBuf.getBuffer();
+                if (buf != null) {
+                    buf.flip();
+                }
+                this.destBuf = null;
+            }
+            this.finished = true;
+            this.await.countDown();
+        }
+    }
+
     @Override
     public void close() throws IOException {
         this.lock.lock();
         try {
             if (!this.finished) {
-                //TODO close
+                if (this.outputStream != null) {
+                    try {
+                        this.outputStream.close();
+                    } catch (IOException e) {
+                        LOG.error("", e);
+                    }
+                    this.outputStream = null;
+                }
             }
         } finally {
             this.lock.unlock();
