@@ -1,7 +1,9 @@
 package com.hongframe.raft.storage.snapshot.local;
 
+import com.hongframe.raft.option.SnapshotCopierOptions;
 import com.hongframe.raft.storage.snapshot.SnapshotCopier;
 import com.hongframe.raft.storage.snapshot.SnapshotReader;
+import com.hongframe.raft.storage.snapshot.remote.RemoteFileCopier;
 
 import java.io.IOException;
 
@@ -11,9 +13,19 @@ import java.io.IOException;
  */
 public class LocalSnapshotCopier extends SnapshotCopier {
 
+    private boolean cancelled;
     private LocalSnapshotStorage storage;
     private boolean filterBeforeCopyRemote;
     private LocalSnapshot remoteSnapshot;
+    private RemoteFileCopier copier;
+
+    public boolean init(final String uri, final SnapshotCopierOptions opts) {
+        this.copier = new RemoteFileCopier();
+        this.cancelled = false;
+        this.filterBeforeCopyRemote = opts.getNodeOptions().isFilterBeforeCopyRemote();
+        this.remoteSnapshot = new LocalSnapshot(opts.getRaftOptions());
+        return this.copier.init(uri, opts);
+    }
 
     @Override
     public void cancel() {

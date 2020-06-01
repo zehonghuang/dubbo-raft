@@ -29,6 +29,8 @@ public class NodeOptions {
 
     private String snapshotUri;
 
+    private boolean filterBeforeCopyRemote = false;
+
     public int getLeaderLeaseTimeRatio() {
         return leaderLeaseTimeRatio;
     }
@@ -39,6 +41,14 @@ public class NodeOptions {
                     + " (expected: 0 < leaderLeaseTimeRatio <= 100)");
         }
         this.leaderLeaseTimeRatio = leaderLeaseTimeRatio;
+    }
+
+    public boolean isFilterBeforeCopyRemote() {
+        return filterBeforeCopyRemote;
+    }
+
+    public void setFilterBeforeCopyRemote(boolean filterBeforeCopyRemote) {
+        this.filterBeforeCopyRemote = filterBeforeCopyRemote;
     }
 
     public int getSnapshotIntervalSecs() {

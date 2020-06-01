@@ -853,6 +853,110 @@ public class RpcRequests {
         }
     }
 
+    public final static class GetFileRequest implements Message {
+        private long readerId;
+        private String filename;
+        private long count;
+        private long offset;
+        private boolean readPartly;
+
+        @Override
+        public String toString() {
+            return "GetFileRequest{" +
+                    "readerId=" + readerId +
+                    ", filename='" + filename + '\'' +
+                    ", count=" + count +
+                    ", offset=" + offset +
+                    ", readPartly=" + readPartly +
+                    '}';
+        }
+
+        @Override
+        public String seviceName() {
+            return GetFileRpc.class.getSimpleName();
+        }
+
+        @Override
+        public String method() {
+            return "getFile";
+        }
+
+        @Override
+        public String getName() {
+            return getClass().getName();
+        }
+
+        public long getReaderId() {
+            return readerId;
+        }
+
+        public void setReaderId(long readerId) {
+            this.readerId = readerId;
+        }
+
+        public String getFilename() {
+            return filename;
+        }
+
+        public void setFilename(String filename) {
+            this.filename = filename;
+        }
+
+        public long getCount() {
+            return count;
+        }
+
+        public void setCount(long count) {
+            this.count = count;
+        }
+
+        public long getOffset() {
+            return offset;
+        }
+
+        public void setOffset(long offset) {
+            this.offset = offset;
+        }
+
+        public boolean isReadPartly() {
+            return readPartly;
+        }
+
+        public void setReadPartly(boolean readPartly) {
+            this.readPartly = readPartly;
+        }
+    }
+
+    public final static class GetFileResponse implements Message {
+        private boolean eof;
+        private byte[] data;
+        private long readSize;
+
+        public boolean isEof() {
+            return eof;
+        }
+
+        public void setEof(boolean eof) {
+            this.eof = eof;
+        }
+
+        public byte[] getData() {
+            return data;
+        }
+
+        public void setData(byte[] data) {
+            this.data = data;
+        }
+
+        public long getReadSize() {
+            return readSize;
+        }
+
+        public void setReadSize(long readSize) {
+            this.readSize = readSize;
+        }
+    }
+
     public final static class ErrorResponse implements Message {
         private Integer errorCode;
         private String errorMsg;

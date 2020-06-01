@@ -152,6 +152,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             LOG.warn("Fail to register downloading snapshot.");
             return;
         }
+
+        //TODO installSnapshot
     }
 
     boolean registerDownloadingSnapshot(final DownloadingSnapshot ds) {
@@ -181,7 +183,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             final DownloadingSnapshot m = this.downloadingSnapshot.get();
             if (m == null) {
                 this.downloadingSnapshot.set(ds);
-                this.curCopier = this.snapshotStorage.startToCopyFrom(ds.request.getUri(), newCopierOpts());
+                this.curCopier = this.snapshotStorage.startToCopyFrom(ds.request.getUri(), newCopierOpts());//TODO startToCopyFrom
                 if (this.curCopier == null) {
                     this.downloadingSnapshot.set(null);
                     ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "Fail to copy from: " + ds.request.getUri()));

@@ -619,7 +619,7 @@ public class NodeImpl implements Node {
         } finally {
             this.writeLock.unlock();
         }
-        this.snapshotExecutor.doSnapshot(callback);
+        this.snapshotExecutor.installSnapshot(request, callback);
         return null;
     }
 
