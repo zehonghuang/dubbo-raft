@@ -192,6 +192,7 @@ public class CopySession implements Session {
                         this.outputStream.close();
                     } catch (IOException e) {
                         LOG.error("", e);
+                        throw e;
                     }
                     this.outputStream = null;
                 }

@@ -10,6 +10,7 @@ public class LocalFileMeta implements Serializable {
 
     private String userMeta;
     private int source;
+    private boolean hasChecksum;
     private String checksum;
 
     @Override
@@ -19,6 +20,13 @@ public class LocalFileMeta implements Serializable {
                 ", source=" + source +
                 ", checksum='" + checksum + '\'' +
                 '}';
+    }
+
+    public boolean hasChecksum() {
+        return this.hasChecksum;
+    }
+    public void setHasChecksum(boolean hasChecksum) {
+        this.hasChecksum = hasChecksum;
     }
 
     public String getUserMeta() {

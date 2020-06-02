@@ -12,11 +12,11 @@ import java.util.Set;
  */
 public abstract class Snapshot extends Status {
 
-    protected static final String RAFT_SNAPSHOT_PREFIX = "snapshot_";
+    public static final String RAFT_SNAPSHOT_PREFIX = "snapshot_";
 
-    protected static final String RAFT_SNAPSHOT_META_FILE = "__raft_snapshot_meta";
+    public static final String RAFT_SNAPSHOT_META_FILE = "__raft_snapshot_meta";
 
-    protected static final String REMOTE_SNAPSHOT_URI_SCHEME = "remote://";
+    public static final String REMOTE_SNAPSHOT_URI_SCHEME = "remote://";
 
     public abstract String getPath();
 

@@ -21,6 +21,8 @@ public abstract class SnapshotWriter extends Snapshot implements Closeable, Life
 
     public abstract boolean addFile(final String fileName, final Message fileMeta);
 
+    public abstract boolean removeFile(final String fileName);
+
     public abstract void close(final boolean keepDataOnError) throws IOException;
 
 }

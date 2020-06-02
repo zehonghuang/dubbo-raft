@@ -1,6 +1,5 @@
 package com.hongframe.raft.storage.snapshot.local;
 
-import com.google.protobuf.LazyStringList;
 import com.google.protobuf.ProtocolStringList;
 import com.hongframe.raft.entity.LocalFileMetaOutter;
 import com.hongframe.raft.entity.LocalFileMetaOutter.*;
@@ -11,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +30,15 @@ public class LocalSnapshotMetaTable {
     public LocalSnapshotMetaTable(RaftOptions raftOptions) {
         this.fileMap = new HashMap<>();
         this.raftOptions = raftOptions;
+    }
+
+    public boolean loadFromIoBufferAsRemote(final ByteBuffer buf) {
+        if (buf == null) {
+            LOG.error("Null buf to load.");
+            return false;
+        }
+        //TODO loadFromIoBufferAsRemote
+        return false;
     }
 
     public boolean addFile(final String fileName, final LocalFileMeta meta) {
@@ -111,6 +120,7 @@ public class LocalSnapshotMetaTable {
         if (meta != null) {
             com.hongframe.raft.entity.LocalFileMeta lmeta = new com.hongframe.raft.entity.LocalFileMeta();
             lmeta.setSource(meta.getSource().getNumber());
+            lmeta.setHasChecksum(meta.hasChecksum());
             lmeta.setChecksum(meta.getChecksum());
             lmeta.setUserMeta(meta.getUserMeta().toString());
             return lmeta;

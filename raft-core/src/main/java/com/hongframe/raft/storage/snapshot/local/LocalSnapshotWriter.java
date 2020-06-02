@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -77,6 +78,11 @@ public class LocalSnapshotWriter extends SnapshotWriter {
         return this.metaTable.addFile(fileName, meta);
     }
 
+    @Override
+    public boolean removeFile(String fileName) {
+        return this.metaTable.removeFile(fileName);
+    }
+
     public long getSnapshotIndex() {
         return this.metaTable.hasMeta() ? this.metaTable.getMeta().getLastIncludedIndex() : 0;
     }
@@ -84,6 +90,11 @@ public class LocalSnapshotWriter extends SnapshotWriter {
     @Override
     public com.hongframe.raft.entity.LocalFileMeta getFileMeta(String fileName) {
         return null;
+    }
+
+    @Override
+    public Set<String> listFiles() {
+        return this.metaTable.listFiles();
     }
 
     @Override
