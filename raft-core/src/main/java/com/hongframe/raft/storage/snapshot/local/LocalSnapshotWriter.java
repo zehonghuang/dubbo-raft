@@ -1,5 +1,6 @@
 package com.hongframe.raft.storage.snapshot.local;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import com.hongframe.raft.entity.LocalFileMetaOutter.*;
 import com.hongframe.raft.entity.SnapshotMeta;
@@ -69,10 +70,13 @@ public class LocalSnapshotWriter extends SnapshotWriter {
     }
 
     @Override
-    public boolean addFile(String fileName, Message fileMeta) {
+    public boolean addFile(String fileName, com.hongframe.raft.entity.LocalFileMeta fileMeta) {
         final LocalFileMeta.Builder metaBuilder = LocalFileMeta.newBuilder();
         if (fileMeta != null) {
-            metaBuilder.mergeFrom(fileMeta);
+            metaBuilder.setSource(fileMeta.getSource() == FileSource.FILE_SOURCE_LOCAL_VALUE ?
+                    FileSource.FILE_SOURCE_LOCAL : FileSource.FILE_SOURCE_REFERENCE)
+                    .setUserMeta(ByteString.copyFromUtf8(fileMeta.getUserMeta()))
+                    .setChecksum(fileMeta.getChecksum());
         }
         final LocalFileMeta meta = metaBuilder.build();
         return this.metaTable.addFile(fileName, meta);

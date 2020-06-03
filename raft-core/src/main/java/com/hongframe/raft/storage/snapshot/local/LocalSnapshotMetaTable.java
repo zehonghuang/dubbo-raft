@@ -119,10 +119,14 @@ public class LocalSnapshotMetaTable {
         LocalFileMeta meta = this.fileMap.get(fileName);
         if (meta != null) {
             com.hongframe.raft.entity.LocalFileMeta lmeta = new com.hongframe.raft.entity.LocalFileMeta();
-            lmeta.setSource(meta.getSource().getNumber());
+            if(meta.hasSource()) {
+                lmeta.setSource(meta.getSource().getNumber());
+            }
             lmeta.setHasChecksum(meta.hasChecksum());
             lmeta.setChecksum(meta.getChecksum());
-            lmeta.setUserMeta(meta.getUserMeta().toString());
+            if(meta.hasUserMeta()) {
+                lmeta.setUserMeta(meta.getUserMeta().toString());
+            }
             return lmeta;
         }
         return null;

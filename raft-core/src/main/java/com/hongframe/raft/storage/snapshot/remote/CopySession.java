@@ -42,6 +42,7 @@ public class CopySession implements Session {
     private final CountDownLatch await = new CountDownLatch(1);
     private boolean finished;
     private ByteBufferCollector destBuf;
+    private String destPath;
     private CopyOptions copyOptions = new CopyOptions();
     private OutputStream outputStream;
     private ScheduledFuture<?> timer;
@@ -73,6 +74,10 @@ public class CopySession implements Session {
 
     public void setOutputStream(final OutputStream out) {
         this.outputStream = out;
+    }
+
+    public void setDestPath(String destPath) {
+        this.destPath = destPath;
     }
 
     @Override

@@ -19,7 +19,7 @@ public abstract class SnapshotWriter extends Snapshot implements Closeable, Life
         return addFile(fileName, null);
     }
 
-    public abstract boolean addFile(final String fileName, final Message fileMeta);
+    public abstract boolean addFile(final String fileName, final com.hongframe.raft.entity.LocalFileMeta fileMeta);
 
     public abstract boolean removeFile(final String fileName);
 

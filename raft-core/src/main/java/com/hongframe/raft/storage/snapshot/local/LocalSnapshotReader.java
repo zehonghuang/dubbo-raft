@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * @author 墨声 E-mail: zehong.hongframe.huang@gmail.com
@@ -69,13 +70,16 @@ public class LocalSnapshotReader extends SnapshotReader {
 
     @Override
     public LocalFileMeta getFileMeta(String fileName) {
-        LocalFileMetaOutter.LocalFileMeta pbmeta = this.metaTable.getFileMeta(fileName);
-        if (pbmeta == null) {
+        com.hongframe.raft.entity.LocalFileMeta meta = this.metaTable.getFileMeta(fileName);
+        if (meta == null) {
             return null;
         }
-        LocalFileMeta meta = new LocalFileMeta();
-//        TODO getFileMeta meta.setSource(pbmeta.getSource().getNumber());
         return meta;
+    }
+
+    @Override
+    public Set<String> listFiles() {
+        return this.metaTable.listFiles();
     }
 
     private long getSnapshotIndex() {
