@@ -48,7 +48,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     @Override
     public NodeImpl getNode() {
-        return null;
+        return this.node;
     }
 
     @Override
@@ -107,6 +107,24 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
     }
 
+    private class InstallSnapshotDone implements LoadSnapshotCallback {
+        private SnapshotReader reader;
+
+        public InstallSnapshotDone(SnapshotReader reader) {
+            this.reader = reader;
+        }
+
+        @Override
+        public SnapshotReader start() {
+            return this.reader;
+        }
+
+        @Override
+        public void run(Status status) {
+            onSnapshotLoadDone(status);
+        }
+    }
+
     private class FirstSnapshotLoadDone implements LoadSnapshotCallback {
 
         private SnapshotReader reader;
@@ -152,11 +170,24 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             LOG.warn("Fail to register downloading snapshot.");
             return;
         }
+        if (this.curCopier == null) {
+            throw new NullPointerException("curCopier");
+        }
+        try {
+            this.curCopier.join();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOG.warn("Install snapshot copy job was canceled.");
+            return;
+        }
 
+        loadDownloadingSnapshot(ds, meta);
         //TODO installSnapshot
     }
 
-    boolean registerDownloadingSnapshot(final DownloadingSnapshot ds) {
+    private boolean registerDownloadingSnapshot(final DownloadingSnapshot ds) {
+        DownloadingSnapshot saved;
+        boolean result;
         this.lock.lock();
         try {
             if (this.savingSnapshot) {
@@ -183,7 +214,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             final DownloadingSnapshot m = this.downloadingSnapshot.get();
             if (m == null) {
                 this.downloadingSnapshot.set(ds);
-                this.curCopier = this.snapshotStorage.startToCopyFrom(ds.request.getUri(), newCopierOpts());//TODO startToCopyFrom
+                this.curCopier = this.snapshotStorage.startToCopyFrom(ds.request.getUri(), newCopierOpts());
                 if (this.curCopier == null) {
                     this.downloadingSnapshot.set(null);
                     ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "Fail to copy from: " + ds.request.getUri()));
@@ -191,11 +222,73 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 }
                 return true;
             }
-            //TODO registerDownloadingSnapshot > previous snapshot
+
+            if (m.request.getMeta().getLastIncludedIndex() == ds.request.getMeta().getLastIncludedIndex()) {
+                saved = m;
+                this.downloadingSnapshot.set(ds);
+                result = false;
+            } else if (m.request.getMeta().getLastIncludedIndex() > ds.request.getMeta().getLastIncludedIndex()) {
+                ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "A newer snapshot is under installing"));
+                return false;
+            } else {
+                if (this.loadingSnapshot) {
+                    ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "A former snapshot is under loading"));
+                    return false;
+                }
+                if (this.curCopier == null) {
+                    throw new NullPointerException("curCopier");
+                }
+                this.curCopier.cancel();
+                ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "A former snapshot is under installing, trying to cancel"));
+                return false;
+            }
         } finally {
             this.lock.unlock();
         }
-        return false;
+        if (saved != null) {
+            saved.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "Interrupted by the retry InstallSnapshotRequest"));
+        }
+
+        return result;
+    }
+
+    private void loadDownloadingSnapshot(final DownloadingSnapshot ds, final SnapshotMeta meta) {
+        SnapshotReader reader;
+        this.lock.lock();
+        try {
+            if (ds != this.downloadingSnapshot.get()) {
+                return;
+            }
+            reader = this.curCopier.getReader();
+            if (!this.curCopier.isOk()) {
+                Utils.closeQuietly(reader);
+                ds.callback.run(this.curCopier);
+                Utils.closeQuietly(this.curCopier);
+                this.curCopier = null;
+                this.downloadingSnapshot.set(null);
+//                this.runningJobs.countDown();
+                return;
+            }
+            Utils.closeQuietly(this.curCopier);
+            this.curCopier = null;
+            if (reader == null || !reader.isOk()) {
+                Utils.closeQuietly(reader);
+                this.downloadingSnapshot.set(null);
+                ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "Fail to copy snapshot from " + ds.request.getUri()));
+//                this.runningJobs.countDown();
+                return;
+            }
+            this.loadingSnapshot = true;
+            this.loadingSnapshotMeta = meta;
+        } finally {
+            this.lock.unlock();
+        }
+
+        final InstallSnapshotDone installSnapshotDone = new InstallSnapshotDone(reader);
+        if (!this.fsmCaller.onSnapshotLoad(installSnapshotDone)) {
+            installSnapshotDone.run(new Status(10001, "This raft node is down"));
+        }
+
     }
 
     private SnapshotCopierOptions newCopierOpts() {
@@ -320,17 +413,23 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             }
 
             this.loadingSnapshot = false;
-//            this.downloadingSnapshot.set(null);
+            this.downloadingSnapshot.set(null);
         } finally {
             if (doUnlock) {
                 this.lock.unlock();
             }
         }
+        //TODO onSnapshotLoadDone
     }
 
     @Override
     public void interruptDownloadingSnapshots(long newTerm) {
         //TODO interruptDownloadingSnapshots
+    }
+
+    @Override
+    public void join() throws InterruptedException {
+
     }
 
     @Override

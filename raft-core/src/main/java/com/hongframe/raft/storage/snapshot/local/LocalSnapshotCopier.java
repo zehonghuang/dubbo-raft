@@ -355,4 +355,8 @@ public class LocalSnapshotCopier extends SnapshotCopier {
     public void setStorage(LocalSnapshotStorage storage) {
         this.storage = storage;
     }
+
+    public void setFilterBeforeCopyRemote(boolean filterBeforeCopyRemote) {
+        this.filterBeforeCopyRemote = filterBeforeCopyRemote;
+    }
 }

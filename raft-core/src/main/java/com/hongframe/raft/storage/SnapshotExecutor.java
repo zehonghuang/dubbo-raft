@@ -24,4 +24,6 @@ public interface SnapshotExecutor extends Lifecycle<SnapshotExecutorOptions> {
     SnapshotStorage getSnapshotStorage();
 
     void interruptDownloadingSnapshots(final long newTerm);
+
+    void join() throws InterruptedException;
 }

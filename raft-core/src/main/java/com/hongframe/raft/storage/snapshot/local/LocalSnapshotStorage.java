@@ -1,7 +1,6 @@
 package com.hongframe.raft.storage.snapshot.local;
 
 import com.hongframe.raft.entity.LocalFileMeta;
-import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.RaftOptions;
 import com.hongframe.raft.option.SnapshotCopierOptions;
 import com.hongframe.raft.storage.snapshot.*;
@@ -193,7 +192,14 @@ public class LocalSnapshotStorage extends SnapshotStorage {
     @Override
     public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
         final LocalSnapshotCopier copier = new LocalSnapshotCopier();
-        return null;//TODO startToCopyFrom
+        copier.setStorage(this);
+        copier.setFilterBeforeCopyRemote(this.filterBeforeCopyRemote);
+        if (!copier.init(uri, opts)) {
+            LOG.error("Fail to init copier to {}.", uri);
+            return null;
+        }
+        copier.start();
+        return copier;
     }
 
     @Override

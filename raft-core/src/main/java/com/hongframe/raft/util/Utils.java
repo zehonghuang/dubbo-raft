@@ -7,6 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -102,6 +103,19 @@ public class Utils {
 
             }
         });
+    }
+
+    public static int closeQuietly(final Closeable closeable) {
+        if (closeable == null) {
+            return 0;
+        }
+        try {
+            closeable.close();
+            return 0;
+        } catch (final IOException e) {
+            LOG.error("Fail to close", e);
+            return 10001;
+        }
     }
 
     public static long monotonicMs() {
