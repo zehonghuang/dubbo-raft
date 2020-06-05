@@ -14,6 +14,7 @@ import com.hongframe.raft.rpc.RpcRequests;
 import com.hongframe.raft.storage.LogManager;
 import com.hongframe.raft.storage.SnapshotExecutor;
 import com.hongframe.raft.storage.snapshot.local.LocalSnapshotStorage;
+import com.hongframe.raft.util.CountDownEvent;
 import com.hongframe.raft.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     private long term;
     private volatile boolean savingSnapshot;
     private volatile boolean loadingSnapshot;
+    private volatile boolean stopped;
     private SnapshotStorage snapshotStorage;
     private SnapshotCopier curCopier;
     private FSMCaller fsmCaller;
@@ -45,6 +47,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     private LogManager logManager;
     private SnapshotMeta loadingSnapshotMeta;
     private final AtomicReference<DownloadingSnapshot> downloadingSnapshot = new AtomicReference<>(null);
+    private final CountDownEvent runningJobs = new CountDownEvent();
 
     @Override
     public NodeImpl getNode() {
@@ -424,16 +427,40 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     @Override
     public void interruptDownloadingSnapshots(long newTerm) {
-        //TODO interruptDownloadingSnapshots
+        this.lock.lock();
+        try {
+            if (newTerm < this.term) {
+                throw new IllegalArgumentException();
+            }
+            this.term = newTerm;
+            if (this.downloadingSnapshot.get() == null) {
+                return;
+            }
+            if (this.curCopier == null) {
+                throw new NullPointerException("curCopier");
+            }
+            this.curCopier.cancel();
+            LOG.info("Trying to cancel downloading snapshot: {}.", this.downloadingSnapshot.get().request);
+        } finally {
+            this.lock.unlock();
+        }
     }
 
     @Override
     public void join() throws InterruptedException {
-
+        this.runningJobs.await();
     }
 
     @Override
     public void shutdown() {
-
+        long savedTerm;
+        this.lock.lock();
+        try {
+            savedTerm = this.term;
+            this.stopped = true;
+        } finally {
+            this.lock.unlock();
+        }
+        interruptDownloadingSnapshots(savedTerm);
     }
 }
