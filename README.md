@@ -30,7 +30,7 @@
     - 无状态机版Raft
         - 基于AMQP的分布式消息队列
         
-- #### 分布式KV存储 Raft-Slime, DQ里等级最低的怪，也是KV存储界最菜的。
+- #### 分布式KV存储 Raft-Slime, DQ里等级最低的怪，也是KV存储界最菜的哈哈哈哈。
 
 ![史莱姆](https://raw.githubusercontent.com/zehonghuang/github_blog_bak/master/source/image/SMMDQSSD_-_Rocket.png)
 
