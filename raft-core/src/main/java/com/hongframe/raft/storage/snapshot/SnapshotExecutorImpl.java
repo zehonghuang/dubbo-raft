@@ -458,7 +458,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     @Override
     public void join() throws InterruptedException {
-        this.runningJobs.await();
+        this.runningJobs.await();//Hyrule
     }
 
     @Override

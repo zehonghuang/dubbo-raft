@@ -13,6 +13,7 @@
         <module>raft-core</module>
         <module>raft-example</module>
         <module>raft-test</module>
+        <module>raft-slime</module>
     </modules>
 
     <properties>
