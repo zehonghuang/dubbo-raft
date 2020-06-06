@@ -79,6 +79,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         LOG.info("Loading snapshot, meta={}.", this.loadingSnapshotMeta);
         this.loadingSnapshot = true;
+        this.runningJobs.incrementAndGet();
         FirstSnapshotLoadDone loadDone = new FirstSnapshotLoadDone(reader);
         if (!this.fsmCaller.onSnapshotLoad(loadDone)) {
             return false;
@@ -185,7 +186,6 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
 
         loadDownloadingSnapshot(ds, meta);
-        //TODO installSnapshot
     }
 
     private boolean registerDownloadingSnapshot(final DownloadingSnapshot ds) {
@@ -269,7 +269,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 Utils.closeQuietly(this.curCopier);
                 this.curCopier = null;
                 this.downloadingSnapshot.set(null);
-//                this.runningJobs.countDown();
+                this.runningJobs.countDown();
                 return;
             }
             Utils.closeQuietly(this.curCopier);
@@ -278,7 +278,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 Utils.closeQuietly(reader);
                 this.downloadingSnapshot.set(null);
                 ds.callback.sendResponse(new RpcRequests.ErrorResponse(10001, "Fail to copy snapshot from " + ds.request.getUri()));
-//                this.runningJobs.countDown();
+                this.runningJobs.countDown();
                 return;
             }
             this.loadingSnapshot = true;
@@ -402,9 +402,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     }
 
     private void onSnapshotLoadDone(Status status) {
+        DownloadingSnapshot m;
         boolean doUnlock = true;
         this.lock.lock();
         try {
+            m = this.downloadingSnapshot.get();
             if (status.isOk()) {
                 this.lastSnapshotIndex = this.loadingSnapshotMeta.getLastIncludedIndex();
                 this.lastSnapshotTerm = this.loadingSnapshotMeta.getLastIncludedTerm();
@@ -414,7 +416,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 doUnlock = true;
                 this.lock.lock();
             }
-
+            //TODO update config
             this.loadingSnapshot = false;
             this.downloadingSnapshot.set(null);
         } finally {
@@ -422,7 +424,15 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 this.lock.unlock();
             }
         }
-        //TODO onSnapshotLoadDone
+        if (m != null) {
+            if (!status.isOk()) {
+                m.callback.run(status);
+            } else {
+                m.response.setSuccess(false);
+                m.callback.sendResponse(m.response);
+            }
+        }
+        this.runningJobs.countDown();
     }
 
     @Override
