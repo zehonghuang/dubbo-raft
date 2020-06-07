@@ -8,6 +8,7 @@ import com.hongframe.raft.entity.SnapshotMeta;
 import com.hongframe.raft.option.ReplicatorOptions;
 import com.hongframe.raft.callback.ResponseCallbackAdapter;
 import com.hongframe.raft.rpc.RpcClient;
+import com.hongframe.raft.rpc.RpcRequests;
 import com.hongframe.raft.rpc.RpcRequests.*;
 import com.hongframe.raft.storage.snapshot.SnapshotReader;
 import com.hongframe.raft.util.ObjectLock;
@@ -190,10 +191,10 @@ public class Replicator {
     }
 
     private boolean isInstallSnapshot(long prevTerm, long prevIndex) {
-        if (prevTerm == 0 && prevIndex != 0) {
-            installSnapshot();
-            return true;
-        }
+//        TODO if (prevTerm == 0 && prevIndex != 0) {
+//            installSnapshot();
+//            return true;
+//        }
         return false;
     }
 
@@ -406,69 +407,10 @@ public class Replicator {
                 }
 
                 try {
-                    request = (AppendEntriesRequest) rpcResponse.request;
-
-                    if (flying.startLogIndex != request.getPreLogIndex() + 1) {
-                        //TODO
-                        LOG.warn("flying.startLogIndex != request.getPreLogIndex() + 1");
-                        continueSendEntries = false;
-                        doUnlock = false;
-                        replicator.sendEmptyEntries(false, null);
-                        break;
+                    doUnlock = false;
+                    if (flying.type == RequestType.AppendEntries) {
+                        continueSendEntries = appendentries(seq, monotonicSendTimeMs, replicator, rpcResponse, flying);
                     }
-
-                    response = (AppendEntriesResponse) rpcResponse.response;
-
-                    LOG.info("\ncurr term: {}, request seq {} [prev index: {}, prev term: {}, curr term: {}, entries size: {}]" +
-                                    "\nresponse[term: {}, success?: {}, lastLogLast: {}]" +
-                                    "\nflying[startLogIndex: {}]", this.options.getTerm(), seq,
-                            request.getPreLogIndex(), request.getPrevLogTerm(), request.getTerm(), request.getEntriesCount(),
-                            response.getTerm(), response.getSuccess(), response.getLastLogLast(),
-                            flying.startLogIndex);
-
-
-                    if (!response.getSuccess()) {
-                        if (response.getTerm() > replicator.options.getTerm()) {
-                            //TODO dowm step
-                            continueSendEntries = false;
-                            break;
-                        }
-
-                        if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
-                            replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
-                        }
-                        //TODO appendEntriesInFly clear
-
-                        if (response.getLastLogLast() + 1 < replicator.nextIndex) {
-                            replicator.nextIndex = response.getLastLogLast() + 1;
-                        } else {
-                            if (replicator.nextIndex > 1) {
-                                replicator.nextIndex--;
-                            }
-                        }
-                        continueSendEntries = false;
-                        doUnlock = false;
-                        replicator.sendEmptyEntries(false, null);
-                        break;
-                    }
-
-                    if (response.getTerm() != replicator.options.getTerm()) {
-                        //TODO appendEntriesInFly clear
-                        continueSendEntries = false;
-                        break;
-                    }
-
-                    if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
-                        replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
-                    }
-                    if (request.getEntriesCount() > 0) {
-                        replicator.options.getBallotBox().commitAt(replicator.nextIndex,
-                                replicator.nextIndex + request.getEntriesCount() - 1, replicator.options.getPeerId());
-                    } else {
-                        replicator.state = State.Replicate;
-                    }
-                    replicator.nextIndex += request.getEntriesCount();
-                    continueSendEntries = true;
                 } finally {
                     //TODO
                     if (continueSendEntries) {
@@ -496,6 +438,77 @@ public class Replicator {
                 }
             }
         }
+    }
+
+    private boolean appendentries(int seq, long monotonicSendTimeMs, Replicator replicator, RpcResponse rpcResponse, FlyingAppendEntries flying) {
+        AppendEntriesRequest request;
+        AppendEntriesResponse response;
+        request = (AppendEntriesRequest) rpcResponse.request;
+
+        if (flying.startLogIndex != request.getPreLogIndex() + 1) {
+            //TODO
+            LOG.warn("flying.startLogIndex != request.getPreLogIndex() + 1");
+//                        doUnlock = false;
+            replicator.sendEmptyEntries(false, null);
+            return false;
+        }
+
+        response = (AppendEntriesResponse) rpcResponse.response;
+
+        LOG.info("\ncurr term: {}, request seq {} [prev index: {}, prev term: {}, curr term: {}, entries size: {}]" +
+                        "\nresponse[term: {}, success?: {}, lastLogLast: {}]" +
+                        "\nflying[startLogIndex: {}]", this.options.getTerm(), seq,
+                request.getPreLogIndex(), request.getPrevLogTerm(), request.getTerm(), request.getEntriesCount(),
+                response.getTerm(), response.getSuccess(), response.getLastLogLast(),
+                flying.startLogIndex);
+
+
+        if (!response.getSuccess()) {
+            if (response.getTerm() > replicator.options.getTerm()) {
+                //TODO down step
+                replicator.destroy();
+                this.options.getNode().increaseTermTo(response.getTerm(), new Status(10001,
+                        "Leader receives higher term heartbeat_response from peer: "
+                                + replicator.options.getPeerId()));
+                return false;
+            }
+
+            if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
+                replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
+            }
+
+            replicator.resetInflights();
+
+            if (response.getLastLogLast() + 1 < replicator.nextIndex) {
+                replicator.nextIndex = response.getLastLogLast() + 1;
+            } else {
+                if (replicator.nextIndex > 1) {
+                    replicator.nextIndex--;
+                }
+            }
+//                        doUnlock = false;
+            replicator.sendEmptyEntries(false, null);
+            return false;
+        }
+
+        if (response.getTerm() != replicator.options.getTerm()) {
+            replicator.resetInflights();
+            LOG.error("Fail, response term {} dismatch, expect term {}", response.getTerm(), replicator.options.getTerm());
+            replicator.self.unlock();
+            return false;
+        }
+
+        if (monotonicSendTimeMs > replicator.lastRpcSendTimestamp) {
+            replicator.lastRpcSendTimestamp = monotonicSendTimeMs;
+        }
+        if (request.getEntriesCount() > 0) {
+            replicator.options.getBallotBox().commitAt(replicator.nextIndex,
+                    replicator.nextIndex + request.getEntriesCount() - 1, replicator.options.getPeerId());
+        } else {
+            replicator.state = State.Replicate;
+        }
+        replicator.nextIndex += request.getEntriesCount();
+        return true;
     }
 
     void resetInflights() {
@@ -640,6 +653,22 @@ public class Replicator {
             self.unlock();
         }
 
+    }
+
+    private void destroy() {
+        final ObjectLock<Replicator> savedId = this.self;
+        LOG.info("Replicator {} is going to quit", savedId);
+        releaseReader();
+        this.state = State.Destroyed;
+        savedId.unlockAndDestroy();
+        this.self = null;
+    }
+
+    private void releaseReader() {
+        if (this.reader != null) {
+            Utils.closeQuietly(this.reader);
+            this.reader = null;
+        }
     }
 
 }

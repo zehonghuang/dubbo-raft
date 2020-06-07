@@ -1143,4 +1143,16 @@ public class NodeImpl implements Node {
 
     }
 
+    void increaseTermTo(final long newTerm, final Status status) {
+        this.writeLock.lock();
+        try {
+            if (newTerm < this.currTerm) {
+                return;
+            }
+            stepDown(newTerm, status);
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
+
 }

@@ -70,5 +70,12 @@ public class ObjectLock<T> {
         this.nonReentrant.release();
     }
 
+    public void unlockAndDestroy() {
+        if (this.destroyed) {
+            return;
+        }
+        this.destroyed = true;
+        this.unlock();
+    }
 
 }
