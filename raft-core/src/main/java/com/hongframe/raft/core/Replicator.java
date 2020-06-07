@@ -234,6 +234,7 @@ public class Replicator {
                 @Override
                 public void run(Status status) {
                     //TODO installSnapshot()
+                    onAppendEntriesReturned(Replicator.this.self, status, request, getResponse(), seq, monotonicSendTimeMs);
                 }
             });
             addFlying(RequestType.Snapshot, this.nextIndex, 0, seq, future);
@@ -353,8 +354,8 @@ public class Replicator {
         }
     }
 
-    private void onAppendEntriesReturned(ObjectLock<Replicator> lock, Status status, AppendEntriesRequest request,
-                                         AppendEntriesResponse response, int seq, long monotonicSendTimeMs) {
+    private void onAppendEntriesReturned(ObjectLock<Replicator> lock, Status status, Message request,
+                                         Message response, int seq, long monotonicSendTimeMs) {
         boolean doUnlock = true;
         Replicator replicator = lock.lock();
         LOG.info("replicator state is {}", this.state);
@@ -410,6 +411,8 @@ public class Replicator {
                     doUnlock = false;
                     if (flying.type == RequestType.AppendEntries) {
                         continueSendEntries = appendentries(seq, monotonicSendTimeMs, replicator, rpcResponse, flying);
+                    } else {
+                        continueSendEntries = installsnapshot(this.self, status, (InstallSnapshotRequest) request, (InstallSnapshotResponse) response);
                     }
                 } finally {
                     //TODO
@@ -624,6 +627,22 @@ public class Replicator {
         }
         entries.add(OutLogEntry.getInstance(entry));
         LOG.info("entry log index: {}, entries size: {}", entry.getId(), entries.size());
+        return true;
+    }
+
+    private boolean installsnapshot(ObjectLock<Replicator> lock, Status status, InstallSnapshotRequest request,
+                                    InstallSnapshotResponse response) {
+        Replicator r = lock.getData();
+        r.releaseReader();
+        if (!status.isOk()) {
+            return false;
+        }
+        if (!response.isSuccess()) {
+            return false;
+        }
+        //TODO installsnapshot retuened
+        r.nextIndex = request.getMeta().getLastIncludedIndex() + 1;
+        r.state = State.Replicate;
         return true;
     }
 
