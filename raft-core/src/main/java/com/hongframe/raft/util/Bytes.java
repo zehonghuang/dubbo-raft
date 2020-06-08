@@ -1,6 +1,10 @@
 package com.hongframe.raft.util;
 
+import com.hongframe.raft.util.internal.UnsafeUtf8Util;
+import com.hongframe.raft.util.internal.UnsafeUtil;
+
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Comparator;
 
@@ -162,6 +166,36 @@ public class Bytes implements Comparable<Bytes> {
             }
             return length1 - length2;
         }
+    }
+
+    public static byte[] writeUtf8(final String in) {
+        if (in == null) {
+            return null;
+        }
+        if (UnsafeUtil.hasUnsafe()) {
+            // Calculate the encoded length.
+            final int len = UnsafeUtf8Util.encodedLength(in);
+            final byte[] outBytes = new byte[len];
+            UnsafeUtf8Util.encodeUtf8(in, outBytes, 0, len);
+            return outBytes;
+        } else {
+            return in.getBytes(StandardCharsets.UTF_8);
+        }
+    }
+
+    private final static char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+
+    public static String toHex(final byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+        final char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        }
+        return new String(hexChars);
     }
 
 

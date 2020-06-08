@@ -60,7 +60,8 @@ public class Replicator {
         Probe,
         Snapshot,
         Replicate,
-        Destroyed;
+        Destroyed,
+        ;
     }
 
     enum RequestType {
