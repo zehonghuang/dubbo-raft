@@ -28,7 +28,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -128,8 +127,8 @@ public class NodeImpl implements Node {
         this.conf = new ConfigurationEntry();
         this.conf.setConf(this.nodeOptions.getConfig());
 
-        this.voteCtx.init(this.conf.getConf());
-        this.prevoteCtx.init(this.conf.getConf());
+        this.voteCtx.init(this.conf.getConf(), null);
+        this.prevoteCtx.init(this.conf.getConf(), null);
 
         this.timerManger = new TimerManager(Utils.CPUS);
         this.electionTimer = new ReentrantTimer("Dubbo-raft-ElectionTimer", this.nodeOptions.getElectionTimeoutMs()) {
@@ -823,7 +822,7 @@ public class NodeImpl implements Node {
                 LOG.warn("Node {} raise term {} when get lastLogId.", getNodeId(), this.currTerm);
                 return;
             }
-            this.prevoteCtx.init(this.conf.getConf());
+            this.prevoteCtx.init(this.conf.getConf(), null);
             for (PeerId peerId : this.conf.getConf().getPeers()) {
                 if (peerId.equals(this.serverId)) {
                     continue;
@@ -990,7 +989,7 @@ public class NodeImpl implements Node {
             this.voteId = this.serverId.copy();
             LOG.debug("Node {} start vote timer, term={} .", getNodeId(), this.currTerm);
             this.voteTimer.start();
-            this.voteCtx.init(this.conf.getConf());
+            this.voteCtx.init(this.conf.getConf(), null);
             oldTerm = this.currTerm;
         } finally {
             this.writeLock.unlock();
@@ -1043,6 +1042,22 @@ public class NodeImpl implements Node {
 
     private boolean isCurrentLeaderValid() {
         return Utils.monotonicMs() - this.lastLeaderTimestamp < this.nodeOptions.getElectionTimeoutMs();
+    }
+
+    public void addPeerId(PeerId peerId) {
+        //TODO addPeerId
+        Configuration newConf = new Configuration(this.conf.getConf().getPeers());
+        newConf.addPeer(peerId);
+    }
+
+    public void changePeerId(List<PeerId> oldPeers, List<PeerId> newPeers) {
+        //TODO changePeerId
+    }
+
+    public void removePeerId(PeerId peerId) {
+        //TODO removePeerId
+        Configuration newConf = new Configuration(this.conf.getConf().getPeers());
+        newConf.removePeer(peerId);
     }
 
     @Override

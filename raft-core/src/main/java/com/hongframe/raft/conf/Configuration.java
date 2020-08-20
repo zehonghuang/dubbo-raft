@@ -31,6 +31,10 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
         return this.peers;
     }
 
+    public void removePeer(final PeerId peer) {
+        this.peers.remove(peer);
+    }
+
     public void reset() {
         this.peers.clear();
     }

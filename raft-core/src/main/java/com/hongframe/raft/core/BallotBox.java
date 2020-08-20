@@ -145,7 +145,7 @@ public class BallotBox implements Lifecycle<BallotBoxOptions> {
 
     public boolean appendPendingTask(final Configuration conf, final Configuration oldConf, final Callback callback) {
         final Ballot bl = new Ballot();
-        if (!bl.init(conf)) {
+        if (!bl.init(conf, null)) {
             return false;
         }
         this.writeLock.lock();

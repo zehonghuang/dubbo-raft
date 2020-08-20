@@ -29,32 +29,69 @@ public class Ballot {
         }
     }
 
-    private final List<UnfoundPeerId> peers = new ArrayList<>();
-    private int quorum;
+    private final List<UnfoundPeerId> _newPeers = new ArrayList<>();
+    private final List<UnfoundPeerId> _oldPeers = new ArrayList<>();
+    private int _newQuorum, _oldQuorum;
 
-    public boolean init(Configuration config) {
-        peers.clear();
-        this.quorum = 0;
-        int index = 0;
-        if (Objects.nonNull(config)) {
-            for (PeerId peerId : config.getPeers()) {
-                this.peers.add(new UnfoundPeerId(peerId, false, index++));
+    public boolean init(Configuration _new, Configuration _old) {
+        _newPeers.clear();
+        this._newQuorum = 0;
+        int newIndex = 0;
+        if (Objects.nonNull(_new)) {
+            for (PeerId peerId : _new.getPeers()) {
+                this._newPeers.add(new UnfoundPeerId(peerId, false, newIndex++));
             }
         }
-        this.quorum = this.peers.size() / 2 + 1;
+        this._newQuorum = this._newPeers.size() / 2 + 1;
+        if (_old == null) {
+            return true;
+        }
+
+        this._oldQuorum = 0;
+        int oldIndex = 0;
+        if (Objects.nonNull(_old)) {
+            for (PeerId peerId : _old.getPeers()) {
+                this._oldPeers.add(new UnfoundPeerId(peerId, false, oldIndex++));
+            }
+        }
+        this._oldQuorum = this._oldPeers.size() / 2 + 1;
         return true;
     }
 
+    /**
+     * TODO 新旧配置共同一致需要测试
+     *
+     * @param peerId
+     * @param hint
+     * @return
+     */
     public PosHint grant(PeerId peerId, PosHint hint) {
-        if(hint.pos0 < 0 || hint.pos0 >= this.peers.size()) {
-            for(UnfoundPeerId ufp : this.peers) {
-                if(Objects.equals(peerId, ufp.peerId)) {
-                    if(!ufp.found) {
+        if (hint.pos0 < 0 || hint.pos0 >= this._newPeers.size()) {
+            for (UnfoundPeerId ufp : this._newPeers) {
+                if (Objects.equals(peerId, ufp.peerId)) {
+                    if (!ufp.found) {
                         hint.pos0 = ufp.index;
                         ufp.found = true;
-                        this.quorum--;
+                        this._newQuorum--;
                     } else {
                         hint.pos0 = -1;
+                    }
+                }
+            }
+        }
+        if (this._oldPeers.isEmpty()) {
+            hint.pos1 = -1;
+            return null;
+        }
+        if (hint.pos1 < 0 || hint.pos1 >= this._oldPeers.size()) {
+            for (UnfoundPeerId ufp : this._oldPeers) {
+                if (Objects.equals(peerId, ufp.peerId)) {
+                    if (!ufp.found) {
+                        hint.pos1 = ufp.index;
+                        ufp.found = true;
+                        this._oldQuorum--;
+                    } else {
+                        hint.pos1 = -1;
                     }
                 }
             }
@@ -67,7 +104,7 @@ public class Ballot {
     }
 
     public boolean isGranted() {
-        return this.quorum <= 0;
+        return this._newQuorum <= 0 && this._oldQuorum <= 0;
     }
 
 }
