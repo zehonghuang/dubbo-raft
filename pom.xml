@@ -19,7 +19,7 @@
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <dubbo-version>2.7.6</dubbo-version>
+        <dubbo-version>2.7.7</dubbo-version>
         <nettt-version>3.2.5.Final</nettt-version>
         <commons-lang3-version>3.9</commons-lang3-version>
         <commons-io-version>2.6</commons-io-version>
